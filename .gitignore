@@ -53,3 +53,8 @@ _probe.py
 # Playwright
 frontend/test-results/
 frontend/playwright-report/
+
+# scratch profiling scripts
+_mem*.py
+_dbg.py
+_probe.py
