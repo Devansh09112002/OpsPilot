@@ -240,6 +240,16 @@ unresolved orders are excluded and counted — never silently labelled on-time.
 
 {excl_tbl}
 
+The final rule deserves explanation. In 329 orders the carrier handover happens
+*after* the promised delivery date. Because delivery can never precede handover,
+every one of those orders is late by arithmetic — 100% observed, as expected.
+They are not predictions. Leaving them in was measurably distorting: the
+operational rule baseline reached Precision@50 = 1.000 on validation purely by
+surfacing them. The product never queues such an order either (all 3,831
+pre-deadline snapshot orders have non-negative handover slack), so the modelling
+population is scoped to orders whose outcome was still genuinely open at the
+prediction moment. This restriction was applied before any model was selected.
+
 **Eligible orders: {rep['eligibility']['eligible_orders']:,}** of
 {rep['eligibility']['total_orders']:,} ({rep['eligibility']['eligible_orders'] / rep['eligibility']['total_orders']:.2%}).
 

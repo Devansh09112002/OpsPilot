@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-09-19T22:44:57+00:00",
+  "generated_at_utc": "2026-09-19T22:50:40+00:00",
   "source": {
     "name": "Olist Brazilian E-Commerce Public Dataset",
     "url": "https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce",
@@ -84,15 +84,19 @@
       {
         "reason": "order_status is not 'delivered'",
         "orders_removed": 6
+      },
+      {
+        "reason": "carrier handover after the promised date (outcome already certain)",
+        "orders_removed": 329
       }
     ],
-    "eligible_orders": 96281
+    "eligible_orders": 95952
   },
   "target_rule": {
     "rule": "date(order_delivered_customer_date) > date(order_estimated_delivery_date)",
-    "late_orders": 6531,
-    "late_rate": 0.06783269804011176,
-    "naive_timestamp_rule_late_orders": 7822,
+    "late_orders": 6202,
+    "late_rate": 0.06463648490912123,
+    "naive_timestamp_rule_late_orders": 7493,
     "orders_misclassified_by_naive_rule": 1291,
     "estimated_dates_all_midnight": true,
     "timezone_assumption": "Olist publishes naive local Brazilian timestamps. No timezone conversion is applied; all comparisons stay within the dataset clock."
@@ -103,37 +107,37 @@
     "validation_end": "2018-06-01",
     "stats": {
       "train": {
-        "orders": 56520,
-        "late": 3552,
+        "orders": 56363,
+        "late": 3395,
         "on_time": 52968,
-        "late_rate": 0.06284501061571125,
+        "late_rate": 0.060234551035253624,
         "handover_from": "2016-10-08 10:34:01",
         "handover_to": "2018-02-28 23:57:57"
       },
       "validation": {
-        "orders": 20825,
-        "late": 2284,
+        "orders": 20781,
+        "late": 2240,
         "on_time": 18541,
-        "late_rate": 0.10967587034813926,
+        "late_rate": 0.10779077041528319,
         "handover_from": "2018-03-01 00:04:54",
         "handover_to": "2018-05-30 21:24:00"
       },
       "test": {
-        "orders": 18936,
-        "late": 695,
+        "orders": 18808,
+        "late": 567,
         "on_time": 18241,
-        "late_rate": 0.036702577101816646,
+        "late_rate": 0.03014674606550404,
         "handover_from": "2018-06-01 06:12:00",
-        "handover_to": "2018-09-11 19:48:28"
+        "handover_to": "2018-08-29 20:01:00"
       }
     }
   },
   "snapshots": {
     "2018-06-20": {
       "label": "20 June 2018",
-      "in_transit": 1453,
+      "in_transit": 1452,
       "pre_deadline": 1449,
-      "overdue": 4
+      "overdue": 3
     },
     "2018-07-18": {
       "label": "18 July 2018",
@@ -143,18 +147,18 @@
     },
     "2018-08-15": {
       "label": "15 August 2018",
-      "in_transit": 1648,
+      "in_transit": 1631,
       "pre_deadline": 1531,
-      "overdue": 117
+      "overdue": 100
     }
   },
   "feature_count": 30,
   "feature_missingness": {
-    "hours_approval_to_handover": 0.00014540771284053967,
-    "hours_purchase_to_approval": 0.00014540771284053967,
-    "max_weight_g": 0.00016618024324633105,
-    "max_product_photos": 0.013824118985054165,
-    "product_category": 0.013824118985054165
+    "hours_approval_to_handover": 0.0001459062864765716,
+    "hours_purchase_to_approval": 0.0001459062864765716,
+    "max_weight_g": 0.00016675004168751042,
+    "max_product_photos": 0.013798565949641487,
+    "product_category": 0.013798565949641487
   },
-  "train_base_rate": 0.06284501061571125
+  "train_base_rate": 0.060234551035253624
 }

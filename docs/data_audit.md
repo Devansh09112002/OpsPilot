@@ -1,6 +1,6 @@
 # OpsPilot — Data Audit
 
-Generated: 2026-09-19T22:44:57+00:00
+Generated: 2026-09-19T22:50:40+00:00
 Status: **PASS** (every gate condition in project plan section 3.5 was asserted in code)
 
 This report is produced by `python -m data_pipeline.audit`. It fails loudly and
@@ -44,9 +44,20 @@ unresolved orders are excluded and counted — never silently labelled on-time.
 | purchase timestamp after carrier handover | 165 |
 | carrier handover after customer delivery | 23 |
 | order_status is not 'delivered' | 6 |
+| carrier handover after the promised date (outcome already certain) | 329 |
 
-**Eligible orders: 96,281** of
-99,441 (96.82%).
+The final rule deserves explanation. In 329 orders the carrier handover happens
+*after* the promised delivery date. Because delivery can never precede handover,
+every one of those orders is late by arithmetic — 100% observed, as expected.
+They are not predictions. Leaving them in was measurably distorting: the
+operational rule baseline reached Precision@50 = 1.000 on validation purely by
+surfacing them. The product never queues such an order either (all 3,831
+pre-deadline snapshot orders have non-negative handover slack), so the modelling
+population is scoped to orders whose outcome was still genuinely open at the
+prediction moment. This restriction was applied before any model was selected.
+
+**Eligible orders: 95,952** of
+99,441 (96.49%).
 
 ## 3. Grain assertions
 
@@ -64,9 +75,9 @@ unresolved orders are excluded and counted — never silently labelled on-time.
 date(order_delivered_customer_date) > date(order_estimated_delivery_date)
 ```
 
-- Late orders: **6,531** (6.7833% of eligible)
+- Late orders: **6,202** (6.4636% of eligible)
 - All `order_estimated_delivery_date` values are stored at midnight: **True**
-- A naive timestamp comparison would flag 7,822 orders,
+- A naive timestamp comparison would flag 7,493 orders,
   **misclassifying 1,291 same-day afternoon
   deliveries as late**. This is precisely the failure the calendar-date rule prevents.
 - Timezone: Olist publishes naive local Brazilian timestamps. No timezone conversion is applied; all comparisons stay within the dataset clock.
@@ -82,9 +93,9 @@ after data inspection and **before** any model comparison.
 
 | split | orders | late | late rate | handover from | handover to |
 |---|---|---|---|---|---|
-| train | 56,520 | 3,552 | 6.285% | 2016-10-08 | 2018-02-28 |
-| validation | 20,825 | 2,284 | 10.968% | 2018-03-01 | 2018-05-30 |
-| test | 18,936 | 695 | 3.670% | 2018-06-01 | 2018-09-11 |
+| train | 56,363 | 3,395 | 6.023% | 2016-10-08 | 2018-02-28 |
+| validation | 20,781 | 2,240 | 10.779% | 2018-03-01 | 2018-05-30 |
+| test | 18,808 | 567 | 3.015% | 2018-06-01 | 2018-08-29 |
 
 Class prevalence shifts materially across periods (a real distribution shift in
 the Olist data, peaking in March 2018). The model report discusses the effect
@@ -98,9 +109,9 @@ from event timestamps (`handover <= D < delivery`), not from the terminal
 
 | snapshot_id | label | in transit | pre-deadline (ranked) | overdue (separate status) |
 |---|---|---|---|---|
-| 2018-06-20 | 20 June 2018 | 1,453 | 1,449 | 4 |
+| 2018-06-20 | 20 June 2018 | 1,452 | 1,449 | 3 |
 | 2018-07-18 | 18 July 2018 | 872 | 851 | 21 |
-| 2018-08-15 | 15 August 2018 | 1,648 | 1,531 | 117 |
+| 2018-08-15 | 15 August 2018 | 1,631 | 1,531 | 100 |
 
 Orders already past their promised date at the snapshot moment are marked
 **overdue** and shown in a separate status. Only pre-deadline orders form the
@@ -154,7 +165,7 @@ any seller/category aggregate computed from outcomes not yet known.
 The two history features earn their place: they read **only** outcomes whose
 delivery timestamp is strictly earlier than the order own handover, which an
 operator would genuinely have had. The smoothing prior
-(0.0628) is the train-split base rate, fitted on train only.
+(0.0602) is the train-split base rate, fitted on train only.
 
 ### Missing values
 

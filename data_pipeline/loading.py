@@ -143,6 +143,13 @@ def select_eligible(orders: pd.DataFrame) -> tuple[pd.DataFrame, ExclusionLog]:
          lambda d: d["order_delivered_carrier_date"] <= d["order_delivered_customer_date"]),
         ("order_status is not 'delivered'",
          lambda d: d["order_status"] == "delivered"),
+        # Handover after the promised date makes lateness an arithmetic
+        # certainty (delivery >= handover > promise), not a prediction. Such
+        # orders are always 'overdue' rather than queued, so including them
+        # would inflate every ranking metric. See docs/data_audit.md section 2.
+        ("carrier handover after the promised date (outcome already certain)",
+         lambda d: d["order_delivered_carrier_date"].dt.normalize()
+                   <= d["order_estimated_delivery_date"].dt.normalize()),
     ]
     for label, predicate in rules:
         keep = predicate(df)

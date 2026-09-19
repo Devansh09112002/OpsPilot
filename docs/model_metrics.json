@@ -1,0 +1,361 @@
+{
+  "model_version": "xgboost-20260919",
+  "selected": "xgboost",
+  "rationale": "XGBoost improved simulated validation Precision@50 by +0.0416 over logistic regression and +0.3583 over the operational rule, both beyond the 0.0275 standard error across 12 snapshots.",
+  "validation": {
+    "rule_deadline_proximity": {
+      "n": 20781,
+      "n_late": 2240,
+      "base_rate": 0.10779,
+      "precision_at_50": 0.8,
+      "recall_at_50": 0.0179,
+      "lift_at_50": 7.422,
+      "pr_auc": 0.1438,
+      "roc_auc": 0.5502,
+      "brier": 0.11289
+    },
+    "logistic_regression": {
+      "n": 20781,
+      "n_late": 2240,
+      "base_rate": 0.10779,
+      "precision_at_50": 0.8,
+      "recall_at_50": 0.0179,
+      "lift_at_50": 7.422,
+      "pr_auc": 0.2754,
+      "roc_auc": 0.7113,
+      "brier": 0.26453
+    },
+    "xgboost": {
+      "n": 20781,
+      "n_late": 2240,
+      "base_rate": 0.10779,
+      "precision_at_50": 0.9,
+      "recall_at_50": 0.0201,
+      "lift_at_50": 8.35,
+      "pr_auc": 0.2742,
+      "roc_auc": 0.6922,
+      "brier": 0.32394
+    }
+  },
+  "validation_simulated": {
+    "rule_deadline_proximity": {
+      "n_snapshots": 12,
+      "median_cohort_size": 2085,
+      "mean_base_rate": 0.21381,
+      "mean_precision_at_50": 0.225,
+      "std_precision_at_50": 0.0954,
+      "mean_recall_at_50": 0.0288,
+      "mean_lift_at_50": 1.052,
+      "top_slots_observed": 600
+    },
+    "logistic_regression": {
+      "n_snapshots": 12,
+      "median_cohort_size": 2085,
+      "mean_base_rate": 0.21381,
+      "mean_precision_at_50": 0.5417,
+      "std_precision_at_50": 0.1828,
+      "mean_recall_at_50": 0.0665,
+      "mean_lift_at_50": 2.533,
+      "top_slots_observed": 600
+    },
+    "xgboost": {
+      "n_snapshots": 12,
+      "median_cohort_size": 2085,
+      "mean_base_rate": 0.21381,
+      "mean_precision_at_50": 0.5833,
+      "std_precision_at_50": 0.2055,
+      "mean_recall_at_50": 0.0718,
+      "mean_lift_at_50": 2.728,
+      "top_slots_observed": 600
+    }
+  },
+  "test": {
+    "rule_deadline_proximity": {
+      "n": 18808,
+      "n_late": 567,
+      "base_rate": 0.03015,
+      "precision_at_50": 1.0,
+      "recall_at_50": 0.0882,
+      "lift_at_50": 33.171,
+      "pr_auc": 0.3062,
+      "roc_auc": 0.7938,
+      "brier": 0.0769
+    },
+    "logistic_regression": {
+      "n": 18808,
+      "n_late": 567,
+      "base_rate": 0.03015,
+      "precision_at_50": 0.62,
+      "recall_at_50": 0.0547,
+      "lift_at_50": 20.566,
+      "pr_auc": 0.1628,
+      "roc_auc": 0.7966,
+      "brier": 0.35925
+    },
+    "xgboost": {
+      "n": 18808,
+      "n_late": 567,
+      "base_rate": 0.03015,
+      "precision_at_50": 0.96,
+      "recall_at_50": 0.0847,
+      "lift_at_50": 31.844,
+      "pr_auc": 0.2752,
+      "roc_auc": 0.7633,
+      "brier": 0.28485,
+      "calibration": [
+        {
+          "bin_low": 0.0,
+          "bin_high": 0.1,
+          "n": 1852,
+          "mean_predicted": 0.0561,
+          "observed_rate": 0.0032
+        },
+        {
+          "bin_low": 0.1,
+          "bin_high": 0.2,
+          "n": 1881,
+          "mean_predicted": 0.148,
+          "observed_rate": 0.0085
+        },
+        {
+          "bin_low": 0.2,
+          "bin_high": 0.3,
+          "n": 1586,
+          "mean_predicted": 0.2491,
+          "observed_rate": 0.0095
+        },
+        {
+          "bin_low": 0.3,
+          "bin_high": 0.4,
+          "n": 1633,
+          "mean_predicted": 0.3502,
+          "observed_rate": 0.0153
+        },
+        {
+          "bin_low": 0.4,
+          "bin_high": 0.5,
+          "n": 1914,
+          "mean_predicted": 0.4517,
+          "observed_rate": 0.0209
+        },
+        {
+          "bin_low": 0.5,
+          "bin_high": 0.6,
+          "n": 2403,
+          "mean_predicted": 0.5524,
+          "observed_rate": 0.02
+        },
+        {
+          "bin_low": 0.6,
+          "bin_high": 0.7,
+          "n": 3097,
+          "mean_predicted": 0.65,
+          "observed_rate": 0.0242
+        },
+        {
+          "bin_low": 0.7,
+          "bin_high": 0.8,
+          "n": 2646,
+          "mean_predicted": 0.7472,
+          "observed_rate": 0.037
+        },
+        {
+          "bin_low": 0.8,
+          "bin_high": 0.9,
+          "n": 1478,
+          "mean_predicted": 0.8429,
+          "observed_rate": 0.0744
+        },
+        {
+          "bin_low": 0.9,
+          "bin_high": 1.0,
+          "n": 318,
+          "mean_predicted": 0.9323,
+          "observed_rate": 0.4214
+        }
+      ]
+    }
+  },
+  "test_simulated": {
+    "rule_deadline_proximity": {
+      "n_snapshots": 11,
+      "median_cohort_size": 1329,
+      "mean_base_rate": 0.04768,
+      "mean_precision_at_50": 0.1164,
+      "std_precision_at_50": 0.1023,
+      "mean_recall_at_50": 0.1071,
+      "mean_lift_at_50": 2.44,
+      "top_slots_observed": 550
+    },
+    "logistic_regression": {
+      "n_snapshots": 11,
+      "median_cohort_size": 1329,
+      "mean_base_rate": 0.04768,
+      "mean_precision_at_50": 0.1673,
+      "std_precision_at_50": 0.0918,
+      "mean_recall_at_50": 0.1595,
+      "mean_lift_at_50": 3.508,
+      "top_slots_observed": 550
+    },
+    "xgboost": {
+      "n_snapshots": 11,
+      "median_cohort_size": 1329,
+      "mean_base_rate": 0.04768,
+      "mean_precision_at_50": 0.1345,
+      "std_precision_at_50": 0.1008,
+      "mean_recall_at_50": 0.1221,
+      "mean_lift_at_50": 2.822,
+      "top_slots_observed": 550
+    }
+  },
+  "per_snapshot": {
+    "2018-06-20": {
+      "n": 1449,
+      "n_late": 44,
+      "base_rate": 0.03037,
+      "precision_at_50": 0.06,
+      "recall_at_50": 0.0682,
+      "lift_at_50": 1.976,
+      "pr_auc": 0.0508,
+      "roc_auc": 0.6218,
+      "brier": 0.20261
+    },
+    "2018-07-18": {
+      "n": 851,
+      "n_late": 54,
+      "base_rate": 0.06345,
+      "precision_at_50": 0.1,
+      "recall_at_50": 0.0926,
+      "lift_at_50": 1.576,
+      "pr_auc": 0.1009,
+      "roc_auc": 0.5802,
+      "brier": 0.29418
+    },
+    "2018-08-15": {
+      "n": 1531,
+      "n_late": 110,
+      "base_rate": 0.07185,
+      "precision_at_50": 0.22,
+      "recall_at_50": 0.1,
+      "lift_at_50": 3.062,
+      "pr_auc": 0.1456,
+      "roc_auc": 0.6465,
+      "brier": 0.33387
+    }
+  },
+  "errors": {
+    "top_k_false_positives": {
+      "n": 2,
+      "median_days_handover_to_estimate": 1.0,
+      "median_hours_purchase_to_handover": 272.4,
+      "share_cross_state": 0.0,
+      "top_customer_states": {
+        "SP": 2
+      }
+    },
+    "low_ranked_late_orders": {
+      "n": 283,
+      "median_days_handover_to_estimate": 10.0,
+      "median_hours_purchase_to_handover": 47.5,
+      "share_cross_state": 0.548,
+      "top_customer_states": {
+        "SP": 130,
+        "RJ": 25,
+        "BA": 16
+      }
+    },
+    "overall_test_profile": {
+      "n": 18808,
+      "median_days_handover_to_estimate": 18.0,
+      "median_hours_purchase_to_handover": 43.1,
+      "share_cross_state": 0.598,
+      "top_customer_states": {
+        "SP": 8673,
+        "RJ": 2158,
+        "MG": 2086
+      }
+    }
+  },
+  "importances": [
+    {
+      "feature": "customer_state_RJ",
+      "weight": 0.03388
+    },
+    {
+      "feature": "customer_state_SP",
+      "weight": 0.03299
+    },
+    {
+      "feature": "route_prior_late_rate",
+      "weight": 0.02655
+    },
+    {
+      "feature": "shipping_limit_slack_hours",
+      "weight": 0.02342
+    },
+    {
+      "feature": "customer_state_MG",
+      "weight": 0.02243
+    },
+    {
+      "feature": "is_cross_state",
+      "weight": 0.0217
+    },
+    {
+      "feature": "seller_state_SP",
+      "weight": 0.02039
+    },
+    {
+      "feature": "customer_state_PE",
+      "weight": 0.01884
+    },
+    {
+      "feature": "handover_week_of_year",
+      "weight": 0.01881
+    },
+    {
+      "feature": "days_handover_to_estimate",
+      "weight": 0.01867
+    },
+    {
+      "feature": "route_prior_orders",
+      "weight": 0.01763
+    },
+    {
+      "feature": "handover_month",
+      "weight": 0.017
+    },
+    {
+      "feature": "customer_state_AL",
+      "weight": 0.01698
+    },
+    {
+      "feature": "hours_purchase_to_handover",
+      "weight": 0.01609
+    },
+    {
+      "feature": "customer_state_MA",
+      "weight": 0.01477
+    }
+  ],
+  "latency_ms": {
+    "n_calls": 200,
+    "median_ms": 3.14,
+    "p95_ms": 3.57
+  },
+  "k": 50,
+  "splits": {
+    "train": {
+      "n": 56363,
+      "base_rate": 0.060234551035253624
+    },
+    "validation": {
+      "n": 20781,
+      "base_rate": 0.10779077041528319
+    },
+    "test": {
+      "n": 18808,
+      "base_rate": 0.03014674606550404
+    }
+  }
+}
