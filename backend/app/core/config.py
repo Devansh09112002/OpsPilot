@@ -1,0 +1,86 @@
+"""Environment-driven application settings.
+
+No secret has a usable default. `llm_api_key` defaults to empty, and the agent
+reports itself unavailable rather than falling back to a canned response.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=(REPO_ROOT / ".env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
+        protected_namespaces=("settings_",),
+    )
+
+    # --- application ---
+    environment: str = Field(default="development")
+    log_level: str = Field(default="INFO")
+    api_v1_prefix: str = "/api/v1"
+
+    # --- database ---
+    database_url: str = Field(
+        default="postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5433/opspilot"
+    )
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+
+    # --- model artifact ---
+    artifact_dir: Path = Field(default=REPO_ROOT / "artifacts")
+
+    # --- guest sessions ---
+    session_cookie_name: str = "opspilot_session"
+    session_ttl_hours: int = 72
+    cookie_secure: bool = Field(default=False)
+    cookie_samesite: str = Field(default="lax")
+
+    # --- CORS ---
+    cors_origins: str = Field(default="http://localhost:5173,http://127.0.0.1:5173")
+
+    # --- LLM ---
+    llm_provider: str = Field(default="anthropic")
+    llm_api_key: str = Field(default="")
+    llm_model: str = Field(default="claude-sonnet-5")
+    llm_max_output_tokens: int = 2000
+    llm_timeout_seconds: float = 45.0
+    llm_max_retries: int = 2
+
+    # --- cost and rate limits (plan section 8.2) ---
+    investigations_per_session_per_day: int = 15
+    investigations_global_per_hour: int = 200
+    api_requests_per_minute: int = 120
+
+    @field_validator("cookie_samesite")
+    @classmethod
+    def _valid_samesite(cls, v: str) -> str:
+        allowed = {"lax", "strict", "none"}
+        if v.lower() not in allowed:
+            raise ValueError(f"cookie_samesite must be one of {allowed}")
+        return v.lower()
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def llm_configured(self) -> bool:
+        return bool(self.llm_api_key.strip())
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment.lower() in {"production", "prod"}
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

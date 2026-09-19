@@ -1,0 +1,47 @@
+{
+  "policy_version": "demo-policy-v1",
+  "effective_from": "2018-01-01",
+  "notice": "Demonstration policy for the OpsPilot demo environment. It does not represent Olist or any real operator.",
+  "sections": [
+    {
+      "section_id": "ESC-01",
+      "title": "Escalation threshold for in-transit orders",
+      "text": "An in-transit order qualifies for carrier escalation when its predicted delivery-risk score is 0.60 or higher AND three or fewer days remain before the promised delivery date. Both conditions must hold."
+    },
+    {
+      "section_id": "ESC-02",
+      "title": "High-risk orders with remaining slack",
+      "text": "An order with a predicted risk score of 0.60 or higher but more than three days of remaining slack is placed under monitoring rather than escalated. Re-assess when two days of slack remain."
+    },
+    {
+      "section_id": "ESC-03",
+      "title": "Orders below the escalation threshold",
+      "text": "An order with a predicted risk score below 0.60 is not escalated on risk score alone, regardless of remaining slack. Record the assessment and take no further action."
+    },
+    {
+      "section_id": "ESC-04",
+      "title": "Overdue orders",
+      "text": "An order already past its promised delivery date is handled under the overdue-recovery process, not the predictive escalation process. Predictive risk scores are not used to justify escalating an order whose deadline has already passed."
+    },
+    {
+      "section_id": "EVI-01",
+      "title": "Evidence requirements for an escalation",
+      "text": "An escalation proposal must cite the order identifier, the model-generated risk score with its model version, and the remaining days before the promised date. A proposal that cannot cite all three is recorded as insufficient evidence and no escalation is raised."
+    },
+    {
+      "section_id": "EVI-02",
+      "title": "Use of historical comparisons",
+      "text": "A historical late-rate comparison may support an escalation but may never be its sole justification. Comparisons computed from fewer than thirty delivered orders are not cited. Historical association is not to be reported as a cause of delay."
+    },
+    {
+      "section_id": "ACT-01",
+      "title": "Authorisation of actions",
+      "text": "The investigation workflow may only propose an escalation. Creating an escalation ticket requires explicit human approval recorded through the OpsPilot interface. No automated approval is permitted under any circumstances."
+    },
+    {
+      "section_id": "ACT-02",
+      "title": "Simulated actions only",
+      "text": "All tickets created in this environment are simulated. No courier, seller or customer is contacted, and no real fulfilment action is taken."
+    }
+  ]
+}

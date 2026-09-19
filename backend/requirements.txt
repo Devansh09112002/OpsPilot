@@ -14,14 +14,15 @@ psycopg[binary]==3.2.3
 numpy==1.26.4
 pandas==2.2.3
 scikit-learn==1.6.1
-xgboost==2.1.3
+xgboost==2.1.4
 joblib==1.4.2
 scipy==1.14.1
+pyarrow==25.0.1
 
 # --- Agent ---
-langgraph==0.2.60
-langchain-core==0.3.29
-anthropic==0.42.0
+langgraph==1.2.11
+langchain-core==1.6.3
+anthropic==1.7.0
 
 # --- Ops ---
 structlog==24.4.0
