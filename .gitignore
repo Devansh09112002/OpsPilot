@@ -49,3 +49,7 @@ Thumbs.db
 frontend/test-results/
 frontend/playwright-report/
 _probe.py
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
