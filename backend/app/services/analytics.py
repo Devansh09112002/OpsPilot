@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import OrderFeature, OrderOutcome, Snapshot
@@ -49,29 +49,19 @@ class ContextResult:
         }
 
 
-def _as_of_base(snapshot_at: datetime) -> Select:
-    """Orders whose delivery outcome was already observable at the snapshot."""
-    return (
-        select(OrderFeature, OrderOutcome)
-        .join(OrderOutcome, OrderOutcome.order_id == OrderFeature.order_id)
-        .where(OrderOutcome.order_delivered_customer_date < snapshot_at)
-    )
+def _count_and_late(
+    db: Session, snapshot_at: datetime, *conditions
+) -> tuple[int, float | None]:
+    """Count and late-rate over outcomes observable strictly before `snapshot_at`.
 
-
-def _rate(db: Session, stmt: Select) -> tuple[int, float | None]:
-    row = db.execute(
-        select(func.count(), func.avg(func.cast(OrderOutcome.is_late, func.Integer().type)))
-        .select_from(stmt.subquery())
-    ).one()
-    n = int(row[0] or 0)
-    return n, (float(row[1]) if row[1] is not None else None)
-
-
-def _count_and_late(db: Session, snapshot_at: datetime, *conditions) -> tuple[int, float | None]:
+    The `<` is the as-of rule; loosening it to `<=` would admit same-day
+    deliveries an operator could not yet have seen.
+    """
     stmt = (
         select(
             func.count(OrderOutcome.order_id),
-            func.avg(func.cast(OrderOutcome.is_late, func.Integer().type)),
+            # PostgreSQL will not cast boolean to float; CASE is the portable form.
+            func.avg(case((OrderOutcome.is_late, 1.0), else_=0.0)),
         )
         .select_from(OrderFeature)
         .join(OrderOutcome, OrderOutcome.order_id == OrderFeature.order_id)

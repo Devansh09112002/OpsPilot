@@ -32,7 +32,10 @@ from app.services import policies
 
 log = get_logger(__name__)
 
-Outcome = Literal["completed", "insufficient_evidence", "failed"]
+# "running" is the pre-terminal value. It must NOT default to "failed":
+# `finalize` short-circuits on a terminal failure status, so a "failed"
+# default would discard a perfectly good report.
+Outcome = Literal["running", "completed", "insufficient_evidence", "failed"]
 
 
 @dataclass
@@ -61,7 +64,7 @@ class InvestigationState:
     llm_input_tokens: int = 0
     llm_output_tokens: int = 0
 
-    status: Outcome = "failed"
+    status: Outcome = "running"
     error_message: str | None = None
 
 
@@ -257,11 +260,15 @@ def verify(state: InvestigationState) -> InvestigationState:
 
 
 def finalize(state: InvestigationState) -> InvestigationState:
+    """Settle the terminal status. A node that already failed keeps its status."""
     if state.status in {"failed", "insufficient_evidence"}:
         return state
-    state.status = "completed" if state.report is not None else "failed"
-    if state.report is None and state.error_message is None:
-        state.error_message = "The investigation produced no report."
+    if state.report is None:
+        state.status = "failed"
+        if state.error_message is None:
+            state.error_message = "The investigation produced no report."
+    else:
+        state.status = "completed"
     return state
 
 

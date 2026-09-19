@@ -17,9 +17,12 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
+from app.core.logging import get_logger
 from app.ml.predictor import predictor
 from app.schemas.investigations import EvidenceItem
 from app.services import analytics, orders, policies
+
+log = get_logger(__name__)
 
 TOOL_NAMES = (
     "get_order_details",
@@ -47,6 +50,19 @@ class ToolResult:
             "error": self.error,
             "evidence_ids": [e.evidence_id for e in self.evidence],
         }
+
+
+def _safe_error(exc: Exception, what: str) -> str:
+    """A message safe to show a user and to place in an LLM prompt.
+
+    Raw exception text from SQLAlchemy or psycopg embeds the full statement,
+    column names and bound parameter values. That is schema disclosure, and it
+    would also put the string "order_delivered_customer_date" in front of the
+    model. Only the exception class is recorded here; the full traceback goes
+    to the structured log.
+    """
+    log.error("tool_failed", tool=what, exc_info=exc)
+    return f"{what} could not be retrieved ({type(exc).__name__})."
 
 
 def get_order_details(db: Session, order_id: str, snapshot_id: str) -> ToolResult:
@@ -129,7 +145,8 @@ def get_delivery_prediction(db: Session, order_id: str, snapshot_id: str) -> Too
         order = orders.get_order_as_of(db, order_id, snapshot_id)
         probability = predictor.predict_one(feature_row.features or {})
     except Exception as exc:  # noqa: BLE001 - surfaced as an honest tool failure
-        return ToolResult("get_delivery_prediction", ok=False, error=str(exc))
+        return ToolResult("get_delivery_prediction", ok=False,
+                          error=_safe_error(exc, "The model prediction"))
 
     from app.ml.predictor import risk_band
 
@@ -178,7 +195,8 @@ def get_historical_context(db: Session, order_id: str, snapshot_id: str) -> Tool
         route = analytics.route_context(db, snapshot_id, order_id)
         category = analytics.category_context(db, snapshot_id, order_id)
     except Exception as exc:  # noqa: BLE001
-        return ToolResult("get_historical_context", ok=False, error=str(exc))
+        return ToolResult("get_historical_context", ok=False,
+                          error=_safe_error(exc, "Historical context"))
 
     data = {"route": route.as_dict(), "category": category.as_dict()}
     evidence: list[EvidenceItem] = []
