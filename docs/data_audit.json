@@ -1,0 +1,160 @@
+{
+  "generated_at_utc": "2026-09-19T22:44:57+00:00",
+  "source": {
+    "name": "Olist Brazilian E-Commerce Public Dataset",
+    "url": "https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce",
+    "license": "CC BY-NC-SA 4.0",
+    "files": [
+      {
+        "table": "orders",
+        "file": "olist_orders_dataset.csv",
+        "bytes": 17654914,
+        "sha256": "8DF58EF3D2D7E9944010F7BEECD9B75367F5588EC6E3C91CEC19AE3345EF9ECF",
+        "sha256_prefix_verified": true
+      },
+      {
+        "table": "order_items",
+        "file": "olist_order_items_dataset.csv",
+        "bytes": 15438671,
+        "sha256": "0BC4D068C4FE38CBB01BD90E8746E3C613FE7B4BAEF75FAB7B0E329701C3E279",
+        "sha256_prefix_verified": true
+      },
+      {
+        "table": "customers",
+        "file": "olist_customers_dataset.csv",
+        "bytes": 9033957,
+        "sha256": "983A422239E1712DED753B3BF9ECF47DC73F144D306029DCFA99E70A226883D2",
+        "sha256_prefix_verified": true
+      },
+      {
+        "table": "sellers",
+        "file": "olist_sellers_dataset.csv",
+        "bytes": 174703,
+        "sha256": "1F643D2B950373B85735E7794B20986F528D7A000432E7C6F9BCBB44D0846A0E",
+        "sha256_prefix_verified": true
+      },
+      {
+        "table": "products",
+        "file": "olist_products_dataset.csv",
+        "bytes": 2379446,
+        "sha256": "3E6569628A17FBC75FD206EE357B59E20364B9AFA90F5B6CD5B4D624C58AA9CC",
+        "sha256_prefix_verified": true
+      },
+      {
+        "table": "category_translation",
+        "file": "product_category_name_translation.csv",
+        "bytes": 2613,
+        "sha256": "A81F0D1F27B27E7293F761BC79E3CE8F348EE39C4B3ED3E49BDE38F478586278",
+        "sha256_prefix_verified": true
+      }
+    ]
+  },
+  "grain_assertions": {
+    "order_id_unique_in_orders": true,
+    "order_items_rows": 112650,
+    "order_items_distinct_orders": 98666,
+    "orphan_order_items": 0,
+    "customer_id_unique": true,
+    "seller_id_unique": true,
+    "product_id_unique": true
+  },
+  "eligibility": {
+    "total_orders": 99441,
+    "exclusions": [
+      {
+        "reason": "missing carrier handover timestamp",
+        "orders_removed": 1783
+      },
+      {
+        "reason": "missing estimated delivery date",
+        "orders_removed": 0
+      },
+      {
+        "reason": "missing actual delivery timestamp",
+        "orders_removed": 1183
+      },
+      {
+        "reason": "purchase timestamp after carrier handover",
+        "orders_removed": 165
+      },
+      {
+        "reason": "carrier handover after customer delivery",
+        "orders_removed": 23
+      },
+      {
+        "reason": "order_status is not 'delivered'",
+        "orders_removed": 6
+      }
+    ],
+    "eligible_orders": 96281
+  },
+  "target_rule": {
+    "rule": "date(order_delivered_customer_date) > date(order_estimated_delivery_date)",
+    "late_orders": 6531,
+    "late_rate": 0.06783269804011176,
+    "naive_timestamp_rule_late_orders": 7822,
+    "orders_misclassified_by_naive_rule": 1291,
+    "estimated_dates_all_midnight": true,
+    "timezone_assumption": "Olist publishes naive local Brazilian timestamps. No timezone conversion is applied; all comparisons stay within the dataset clock."
+  },
+  "splits": {
+    "cut_on": "order_delivered_carrier_date",
+    "train_end": "2018-03-01",
+    "validation_end": "2018-06-01",
+    "stats": {
+      "train": {
+        "orders": 56520,
+        "late": 3552,
+        "on_time": 52968,
+        "late_rate": 0.06284501061571125,
+        "handover_from": "2016-10-08 10:34:01",
+        "handover_to": "2018-02-28 23:57:57"
+      },
+      "validation": {
+        "orders": 20825,
+        "late": 2284,
+        "on_time": 18541,
+        "late_rate": 0.10967587034813926,
+        "handover_from": "2018-03-01 00:04:54",
+        "handover_to": "2018-05-30 21:24:00"
+      },
+      "test": {
+        "orders": 18936,
+        "late": 695,
+        "on_time": 18241,
+        "late_rate": 0.036702577101816646,
+        "handover_from": "2018-06-01 06:12:00",
+        "handover_to": "2018-09-11 19:48:28"
+      }
+    }
+  },
+  "snapshots": {
+    "2018-06-20": {
+      "label": "20 June 2018",
+      "in_transit": 1453,
+      "pre_deadline": 1449,
+      "overdue": 4
+    },
+    "2018-07-18": {
+      "label": "18 July 2018",
+      "in_transit": 872,
+      "pre_deadline": 851,
+      "overdue": 21
+    },
+    "2018-08-15": {
+      "label": "15 August 2018",
+      "in_transit": 1648,
+      "pre_deadline": 1531,
+      "overdue": 117
+    }
+  },
+  "feature_count": 30,
+  "feature_missingness": {
+    "hours_approval_to_handover": 0.00014540771284053967,
+    "hours_purchase_to_approval": 0.00014540771284053967,
+    "max_weight_g": 0.00016618024324633105,
+    "max_product_photos": 0.013824118985054165,
+    "product_category": 0.013824118985054165
+  },
+  "train_base_rate": 0.06284501061571125
+}

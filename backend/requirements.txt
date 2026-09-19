@@ -1,0 +1,30 @@
+# --- Web / API ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.5
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+
+# --- Database ---
+SQLAlchemy==2.0.36
+alembic==1.14.0
+psycopg[binary]==3.2.3
+
+# --- ML serving ---
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.6.1
+xgboost==2.1.3
+joblib==1.4.2
+scipy==1.14.1
+
+# --- Agent ---
+langgraph==0.2.60
+langchain-core==0.3.29
+anthropic==0.42.0
+
+# --- Ops ---
+structlog==24.4.0
+tenacity==9.0.0
+python-dotenv==1.0.1
+httpx==0.28.1
