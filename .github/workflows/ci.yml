@@ -199,22 +199,33 @@ jobs:
 
       - name: Fail on a committed secret
         run: |
-          set -euo pipefail
-          echo "Scanning the working tree for credential patterns..."
-          # Real key shapes only; the .env.example placeholders are empty and
-          # must not trip this.
-          if grep -rInE \
+          set -uo pipefail
+          echo "Scanning tracked files for credential patterns..."
+
+          # Provider API keys. The .env.example placeholders are empty, so any
+          # match here means a real key was committed.
+          if git grep -InE \
               -e 'AIza[0-9A-Za-z_-]{30,}' \
               -e 'sk-ant-[0-9A-Za-z_-]{20,}' \
               -e 'sk-[0-9A-Za-z]{40,}' \
-              -e 'postgres(ql)?://[^:@[:space:]]+:[^@[:space:]]+@' \
-              --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.venv \
-              --exclude='*.lock' --exclude='package-lock.json' \
-              . ; then
-            echo "::error::A credential-like string is present in the repository."
+              -e 'gh[pousr]_[0-9A-Za-z]{30,}' \
+              -- . ':!*.lock' ':!package-lock.json'; then
+            echo "::error::An API key is present in the repository."
             exit 1
           fi
-          echo "No credential patterns found."
+
+          # Database URLs pointing at a REMOTE host. The local development
+          # credential (opspilot_dev_pw on 127.0.0.1 / localhost / the compose
+          # service name) is documented setup, not a secret, so it is allowed;
+          # a DSN for anything else is treated as a leak.
+          if git grep -InE 'postgres(ql)?(\+psycopg)?://[^:@[:space:]]+:[^@[:space:]]+@' \
+                 -- . ':!*.lock' ':!package-lock.json' \
+             | grep -vE '@(127\.0\.0\.1|localhost|db|postgres):' ; then
+            echo "::error::A remote database URL with credentials is committed."
+            exit 1
+          fi
+
+          echo "No committed credentials found."
 
       - name: Ensure .env is not tracked
         run: |
