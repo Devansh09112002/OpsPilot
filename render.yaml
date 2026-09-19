@@ -1,0 +1,93 @@
+# Render blueprint for OpsPilot.
+#
+# Two free services. The database is NOT defined here: Render's free Postgres
+# expires after 30 days, so OpsPilot uses a Supabase free project instead and
+# receives its connection string as a secret. See docs/deployment.md.
+#
+# Every value marked `sync: false` must be set in the Render dashboard. No
+# secret is committed to this repository.
+
+services:
+  # ---------------------------------------------------------------- backend
+  - type: web
+    name: opspilot-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+
+      # Supabase session-pooler connection string (port 6543). The pooler is
+      # required: Render's free instance would otherwise exhaust Supabase's
+      # direct-connection limit on restart.
+      - key: DATABASE_URL
+        sync: false
+
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: gemini-2.5-flash
+      - key: LLM_THINKING_BUDGET
+        value: "0"
+      - key: LLM_TIMEOUT_SECONDS
+        value: "45"
+
+      # The frontend is a different origin, so the guest-session cookie must be
+      # SameSite=None and Secure or the browser will drop it and every visitor
+      # would get a new session on each request.
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: SESSION_TTL_HOURS
+        value: "72"
+
+      # Exact static-site origin, set after the first deploy. Never "*":
+      # credentialed CORS requires a concrete origin.
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Free-tier guards.
+      - key: INVESTIGATIONS_PER_SESSION_PER_DAY
+        value: "10"
+      - key: INVESTIGATIONS_GLOBAL_PER_HOUR
+        value: "60"
+      - key: INVESTIGATIONS_GLOBAL_PER_DAY
+        value: "180"
+      - key: API_REQUESTS_PER_MINUTE
+        value: "120"
+
+  # --------------------------------------------------------------- frontend
+  - type: web
+    name: opspilot-web
+    runtime: static
+    plan: free
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+    autoDeploy: true
+    envVars:
+      # Baked into the bundle at build time; set to the API service URL.
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      # Client-side routing: every unknown path serves the SPA shell.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: X-Frame-Options
+        value: DENY

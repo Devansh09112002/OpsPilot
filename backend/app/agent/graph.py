@@ -182,13 +182,6 @@ def synthesize(state: InvestigationState) -> InvestigationState:
     return state
 
 
-NUMBER_RE = re.compile(r"\d+(?:\.\d+)?%?")
-
-
-def _numbers_in(text: str) -> set[str]:
-    return set(NUMBER_RE.findall(text))
-
-
 def verify(state: InvestigationState) -> InvestigationState:
     """Check the model's report against the real tool results.
 

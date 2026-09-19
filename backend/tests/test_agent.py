@@ -25,17 +25,17 @@ def _fake_result(report: InvestigationReport) -> LLMResult:
 
 
 def _good_report(**overrides) -> InvestigationReport:
-    base = dict(
-        summary="The order is at elevated risk with little slack remaining.",
-        facts=[FactItem(
+    base = {
+        "summary": "The order is at elevated risk with little slack remaining.",
+        "facts": [FactItem(
             statement="The model scored this order at elevated risk.",
             evidence_ids=["prediction.risk_probability", "prediction.model_version"],
         )],
-        limitations=[],
-        recommendation="propose_escalation",
-        recommendation_rationale="Risk is above threshold inside the escalation window.",
-        proposed_action="Escalate to the carrier for a delivery status check.",
-    )
+        "limitations": [],
+        "recommendation": "propose_escalation",
+        "recommendation_rationale": "Risk is above threshold inside the escalation window.",
+        "proposed_action": "Escalate to the carrier for a delivery status check.",
+    }
     base.update(overrides)
     return InvestigationReport(**base)
 

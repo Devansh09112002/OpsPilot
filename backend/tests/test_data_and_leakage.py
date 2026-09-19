@@ -15,7 +15,6 @@ from data_pipeline.features import (
     FEATURE_AVAILABILITY,
     MODEL_FEATURES,
     OUTCOME_COLUMNS,
-    build_feature_table,
     split_features_and_outcomes,
 )
 from data_pipeline.loading import (
@@ -118,7 +117,7 @@ def test_adding_an_unjustified_feature_fails_the_build(monkeypatch):
     """Deliberately inject a feature with no justification; the build must fail."""
     import data_pipeline.features as feat
 
-    monkeypatch.setattr(feat, "MODEL_FEATURES", feat.MODEL_FEATURES + ["leaked_future_flag"])
+    monkeypatch.setattr(feat, "MODEL_FEATURES", [*feat.MODEL_FEATURES, "leaked_future_flag"])
     raw = load_raw()
     eligible, _ = select_eligible(raw["orders"])
     with pytest.raises(RuntimeError):
@@ -132,7 +131,7 @@ def test_as_of_history_never_reads_a_later_outcome():
     the second order is handed over. The second must therefore see zero prior
     outcomes, not one.
     """
-    from data_pipeline.features import HISTORY_SMOOTHING_ALPHA, _as_of_history
+    from data_pipeline.features import _as_of_history
 
     orders = pd.DataFrame({
         "order_id": ["a", "b"],

@@ -9,7 +9,7 @@ explicit test that the stub is never silently substituted in production code.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -20,12 +20,12 @@ os.environ.setdefault(
 os.environ.setdefault("LLM_API_KEY", "")
 os.environ.setdefault("ENVIRONMENT", "test")
 
-from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine, select  # noqa: E402
-from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.config import get_settings  # noqa: E402
-from app.db.models import (  # noqa: E402
+from app.core.config import get_settings
+from app.db.models import (
     Base,
     GuestSession,
     OrderFeature,
@@ -217,7 +217,7 @@ def seeded_order(db) -> tuple[str, str]:
 def guest_session(db) -> GuestSession:
     import secrets
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     s = GuestSession(
         session_id=secrets.token_urlsafe(32),
         created_at=now, last_seen_at=now,

@@ -1,0 +1,70 @@
+name: Keepalive
+
+# Free-tier hosting has two dormancy problems this job addresses:
+#
+#   * Render's free web service spins down after ~15 minutes idle, so the next
+#     visitor waits up to a minute for a cold start.
+#   * A Supabase free project pauses after ~7 days with no database activity
+#     and then needs a manual resume in the dashboard.
+#
+# A scheduled request to the readiness endpoint touches both the web service
+# and the database, keeping the demo warm and the project active. GitHub's
+# scheduler is free for this, and a single small GET costs nothing.
+#
+# Note: GitHub disables scheduled workflows on repositories with no activity
+# for 60 days. If the demo must survive a long quiet period, re-enable it in
+# the Actions tab.
+
+on:
+  schedule:
+    # Every 10 minutes during a broad waking window (UTC), which covers the
+    # hours an interviewer is plausibly looking at the demo.
+    - cron: "*/10 4-20 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping the deployed API
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Warm the API and touch the database
+        env:
+          # Repository variable, not a secret: this is a public URL.
+          API_URL: ${{ vars.OPSPILOT_API_URL }}
+        run: |
+          set -uo pipefail
+          if [ -z "${API_URL:-}" ]; then
+            echo "OPSPILOT_API_URL repository variable is not set; nothing to ping."
+            exit 0
+          fi
+
+          echo "Pinging ${API_URL}/api/v1/health/ready"
+          # A cold start can take ~60s, so allow generous time and retries.
+          for attempt in 1 2 3 4 5; do
+            body=$(curl -fsS --max-time 90 "${API_URL}/api/v1/health/ready" || true)
+            if [ -n "$body" ]; then
+              echo "$body"
+              status=$(printf '%s' "$body" | grep -o '"status":"[a-z]*"' | head -1)
+              echo "readiness: $status"
+              # 'degraded' is fine (it only means no LLM key); 'unavailable'
+              # means the database is down and is worth failing on.
+              case "$body" in
+                *'"status":"unavailable"'*)
+                  echo "::warning::API is up but its database is unavailable."
+                  exit 1
+                  ;;
+              esac
+              exit 0
+            fi
+            echo "attempt $attempt failed; the service may be cold. Retrying..."
+            sleep 20
+          done
+
+          echo "::warning::Could not reach ${API_URL} after 5 attempts."
+          exit 1

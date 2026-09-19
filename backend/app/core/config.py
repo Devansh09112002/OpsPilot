@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -47,17 +47,29 @@ class Settings(BaseSettings):
     # --- CORS ---
     cors_origins: str = Field(default="http://localhost:5173,http://127.0.0.1:5173")
 
-    # --- LLM ---
-    llm_provider: str = Field(default="anthropic")
-    llm_api_key: str = Field(default="")
-    llm_model: str = Field(default="claude-sonnet-5")
+    # --- LLM (Google Gemini free tier) ---
+    llm_provider: str = Field(default="gemini")
+    # Accepts GEMINI_API_KEY as well as LLM_API_KEY, since that is the name
+    # Google's console and most hosting platforms use.
+    llm_api_key: str = Field(default="", validation_alias=AliasChoices(
+        "LLM_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"))
+    llm_model: str = Field(default="gemini-2.5-flash")
     llm_max_output_tokens: int = 2000
+    llm_temperature: float = 0.2
+    # 0 disables Gemini's thinking mode. This task is bounded synthesis over
+    # already-verified evidence, so thinking buys little and costs latency and
+    # free-tier quota. -1 leaves the model's default in place.
+    llm_thinking_budget: int = 0
     llm_timeout_seconds: float = 45.0
-    llm_max_retries: int = 2
+    llm_max_retries: int = 1
 
     # --- cost and rate limits (plan section 8.2) ---
-    investigations_per_session_per_day: int = 15
-    investigations_global_per_hour: int = 200
+    # Sized for the Gemini free tier, which is quota-limited per minute and per
+    # day. Exceeding it returns a clear 429 rather than an error the visitor
+    # cannot act on.
+    investigations_per_session_per_day: int = 10
+    investigations_global_per_hour: int = 60
+    investigations_global_per_day: int = 180
     api_requests_per_minute: int = 120
 
     @field_validator("cookie_samesite")

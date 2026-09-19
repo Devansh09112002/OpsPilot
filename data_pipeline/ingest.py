@@ -14,20 +14,19 @@ import sys
 
 import pandas as pd
 from sqlalchemy import delete, text
-from sqlalchemy.orm import Session
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1] / "backend"))
 
-from app.db.models import (  # noqa: E402
+from app.db.models import (
     OrderFeature,
     OrderOutcome,
     Snapshot,
     SnapshotOrder,
 )
-from app.db.session import SessionLocal, engine  # noqa: E402
-from data_pipeline import spec  # noqa: E402
-from data_pipeline.features import MODEL_FEATURES  # noqa: E402
-from ml_pipeline.model import load_artifact, predict_risk  # noqa: E402
+from app.db.session import SessionLocal, engine
+from data_pipeline import spec
+from data_pipeline.features import MODEL_FEATURES
+from ml_pipeline.model import load_artifact, predict_risk
 
 BATCH = 2000
 
@@ -75,6 +74,17 @@ def ingest() -> dict:
         db.execute(delete(OrderFeature))
         db.flush()
 
+        # Only orders that appear in a snapshot are ever scored: every as-of
+        # API path and agent tool requires snapshot membership, so a
+        # non-snapshot order can never reach the model. The other ~92k rows
+        # exist solely to power as-of historical aggregates, which read only
+        # the denormalised state/category columns and the outcome table.
+        # Storing their feature documents would add ~93 MB for nothing, which
+        # matters on a 500 MB free-tier database.
+        scored_ids = set(members["order_id"])
+        print(f"storing feature documents for {len(scored_ids):,} scorable orders "
+              f"of {len(features):,} total")
+
         feature_rows = [
             {
                 "order_id": r.order_id,
@@ -85,11 +95,14 @@ def ingest() -> dict:
                 ),
                 "order_delivered_carrier_date": r.order_delivered_carrier_date.to_pydatetime(),
                 "order_estimated_delivery_date": r.order_estimated_delivery_date.to_pydatetime(),
-                "features": {
-                    f: (None if pd.isna(v := getattr(r, f)) else
-                        (v.item() if hasattr(v, "item") else v))
-                    for f in MODEL_FEATURES
-                },
+                "features": (
+                    {
+                        f: (None if pd.isna(v := getattr(r, f)) else
+                            (v.item() if hasattr(v, "item") else v))
+                        for f in MODEL_FEATURES
+                    }
+                    if r.order_id in scored_ids else None
+                ),
                 "customer_state": None if pd.isna(r.customer_state) else str(r.customer_state),
                 "seller_state": None if pd.isna(r.seller_state) else str(r.seller_state),
                 "product_category": (

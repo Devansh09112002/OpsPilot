@@ -12,7 +12,7 @@ session id, and every read filters on it.
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, Request, Response
 from sqlalchemy import select
@@ -26,7 +26,7 @@ TOKEN_BYTES = 32
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _new_session(db: Session) -> GuestSession:

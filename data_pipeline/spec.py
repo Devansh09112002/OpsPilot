@@ -31,14 +31,27 @@ SOURCE_FILES: dict[str, str] = {
     "category_translation": "product_category_name_translation.csv",
 }
 
-# SHA256 of the upstream Olist CSVs, cross-verified against two independent
-# public mirrors on 2026-09-20. Used by the ingestion integrity check.
+# SHA256 of the upstream Olist CSVs, cross-verified byte-for-byte against two
+# independent public mirrors before first use. `data_pipeline.fetch` refuses
+# any file that does not match, so the pipeline cannot train on unknown data.
+SOURCE_SHA256_FULL: dict[str, str] = {
+    "olist_orders_dataset.csv":
+        "8df58ef3d2d7e9944010f7beecd9b75367f5588ec6e3c91cec19ae3345ef9ecf",
+    "olist_order_items_dataset.csv":
+        "0bc4d068c4fe38cbb01bd90e8746e3c613fe7b4baef75fab7b0e329701c3e279",
+    "olist_customers_dataset.csv":
+        "983a422239e1712ded753b3bf9ecf47dc73f144d306029dcfa99e70a226883d2",
+    "olist_sellers_dataset.csv":
+        "1f643d2b950373b85735e7794b20986f528d7a000432e7c6f9bcbb44d0846a0e",
+    "olist_products_dataset.csv":
+        "3e6569628a17fbc75fd206ee357b59e20364b9afa90f5b6cd5b4d624c58aa9cc",
+    "product_category_name_translation.csv":
+        "a81f0d1f27b27e7293f761bc79e3ce8f348ee39c4b3ed3e49bde38f478586278",
+}
+
+# Uppercase prefixes used by the audit report's inventory table.
 SOURCE_SHA256: dict[str, str] = {
-    "olist_orders_dataset.csv": "8DF58EF3D2D7E9944010F7BE",
-    "olist_order_items_dataset.csv": "0BC4D068C4FE38CBB01BD90E",
-    "olist_customers_dataset.csv": "983A422239E1712DED753B3B",
-    "olist_sellers_dataset.csv": "1F643D2B950373B85735E779",
-    "olist_products_dataset.csv": "3E6569628A17FBC75FD206EE",
+    name: digest[:24].upper() for name, digest in SOURCE_SHA256_FULL.items()
 }
 
 # --- Prediction contract (plan section 3.2) ---

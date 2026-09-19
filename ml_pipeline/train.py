@@ -11,7 +11,7 @@ Discipline enforced here (plan section 4.2):
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 import pandas as pd
@@ -20,7 +20,6 @@ from data_pipeline import spec
 from data_pipeline.features import MODEL_FEATURES
 from ml_pipeline import report as report_mod
 from ml_pipeline.metrics import evaluate
-from ml_pipeline.selection import evaluate_over_snapshots
 from ml_pipeline.model import (
     DeadlineProximityRule,
     ModelMetadata,
@@ -28,6 +27,8 @@ from ml_pipeline.model import (
     build_xgboost,
     save_artifact,
 )
+from ml_pipeline.render import render as render_report
+from ml_pipeline.selection import evaluate_over_snapshots
 
 K = spec.REVIEW_CAPACITY_K
 
@@ -205,11 +206,11 @@ def main() -> int:
 
     per_snapshot = report_mod.per_snapshot_metrics(final, df, K)
 
-    version = f"{best}-{datetime.now(timezone.utc):%Y%m%d}"
+    version = f"{best}-{datetime.now(UTC):%Y%m%d}"
     meta = ModelMetadata(
         model_version=version,
         model_family=best,
-        trained_at_utc=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        trained_at_utc=datetime.now(UTC).isoformat(timespec="seconds"),
         training_cutoff=str(spec.TRAIN_END.date()),
         feature_names=list(MODEL_FEATURES),
         numeric_features=list(X_tr.columns[:0]) or [],
@@ -252,7 +253,7 @@ def main() -> int:
         },
     }
     (spec.DOCS_DIR / "model_metrics.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    (spec.DOCS_DIR / "model_report.md").write_text(report_mod.render(payload), encoding="utf-8")
+    (spec.DOCS_DIR / "model_report.md").write_text(render_report(payload), encoding="utf-8")
     print("wrote docs/model_report.md, docs/model_metrics.json")
     return 0
 

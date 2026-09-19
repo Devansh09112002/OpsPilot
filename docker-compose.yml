@@ -1,0 +1,88 @@
+# Local full-stack run: PostgreSQL, the API and the built frontend.
+#
+#   1. cp .env.example .env     and set GEMINI_API_KEY (optional)
+#   2. docker compose up --build
+#   3. docker compose run --rm ingest     (one-off, loads the data)
+#   4. open http://localhost:5173
+#
+# Artifacts and the Olist CSVs are NOT in the image build context for the
+# ingest step, so `data/` is mounted. See docs/deployment.md.
+
+name: opspilot
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: opspilot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opspilot_dev_pw}
+      POSTGRES_DB: opspilot
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opspilot -d opspilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: postgresql+psycopg://opspilot:${POSTGRES_PASSWORD:-opspilot_dev_pw}@db:5432/opspilot
+      ARTIFACT_DIR: /app/artifacts
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: lax
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # One-off: apply migrations and load the validated data.
+  # Requires data/processed/*.parquet, produced by `python -m data_pipeline.audit`.
+  ingest:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://opspilot:${POSTGRES_PASSWORD:-opspilot_dev_pw}@db:5432/opspilot
+      ARTIFACT_DIR: /app/artifacts
+      PYTHONPATH: /app/backend:/app
+    volumes:
+      - ./data:/app/data:ro
+    working_dir: /app
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["tools"]
+    command: >
+      sh -c "cd /app/backend && alembic upgrade head &&
+             cd /app && python -m data_pipeline.ingest"
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

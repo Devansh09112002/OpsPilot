@@ -9,7 +9,7 @@ persists its honest status and creates nothing.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -29,7 +29,6 @@ from app.schemas.investigations import (
     FactItem,
     InvestigationOut,
     ProposalOut,
-    TicketOut,
 )
 from app.services.proposals import new_id, record_audit
 
@@ -39,7 +38,7 @@ MAX_ACTION_LENGTH = 300
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _persist_evidence(state: InvestigationState) -> list[dict]:
@@ -64,7 +63,7 @@ def run_and_persist(
 
     try:
         state = run_investigation(db, order_id, snapshot_id)
-    except Exception as exc:  # noqa: BLE001 - an agent crash must not 500 the API
+    except Exception as exc:
         log.error("investigation_crashed", order_id=order_id, exc_info=exc)
         investigation.status = InvestigationStatus.failed
         investigation.error_message = (

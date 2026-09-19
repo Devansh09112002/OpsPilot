@@ -10,7 +10,7 @@ and the API answers 503 for predictions. It never invents a score.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
 
@@ -53,7 +53,7 @@ class Predictor:
                     model_version=self._meta["model_version"],
                     features=len(self._meta["feature_names"]),
                 )
-            except (ArtifactError, Exception) as exc:  # noqa: BLE001
+            except (ArtifactError, Exception) as exc:
                 self._model, self._meta = None, None
                 self._error = str(exc)
                 log.error("model_artifact_load_failed", error=self._error)
@@ -79,6 +79,11 @@ class Predictor:
         if self._model is None:
             raise ArtifactError(self._error or "model artifact is not loaded")
 
+        if not features:
+            raise ArtifactError(
+                "no stored feature document for this order, so it cannot be "
+                "scored. Only orders belonging to a demo snapshot are scorable."
+            )
         missing = [f for f in MODEL_FEATURES if f not in features]
         if missing:
             raise ArtifactError(f"stored feature document is missing {missing}")
@@ -98,4 +103,4 @@ predictor = Predictor()
 
 
 def prediction_computed_at() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

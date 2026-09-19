@@ -1,0 +1,21 @@
+# Lint configuration shared by local runs and CI.
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv", "frontend", "backend/app/db/migrations/versions"]
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+  "E501",    # line length is enforced by the formatter, not the linter
+  "B008",    # FastAPI's Depends() in defaults is the documented idiom
+  "RUF012",  # mutable class attrs are fine on Pydantic/SQLAlchemy models
+]
+
+[lint.per-file-ignores]
+# Tests deliberately reach into private helpers to assert internal invariants.
+"backend/tests/*" = ["SLF001", "E402"]
+# Pipeline entrypoints import after a sys.path fix-up.
+"data_pipeline/ingest.py" = ["E402"]
+
+[lint.isort]
+known-first-party = ["app", "data_pipeline", "ml_pipeline", "evaluation"]

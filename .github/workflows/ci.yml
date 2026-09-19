@@ -1,0 +1,225 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: opspilot
+          POSTGRES_PASSWORD: opspilot_dev_pw
+          POSTGRES_DB: opspilot
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U opspilot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # CI runs against a database it builds from scratch. No secret is needed,
+      # and no LLM key is configured: the provider layer is covered by tests
+      # that stub the transport, so CI never spends free-tier quota.
+      DATABASE_URL: postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5432/opspilot
+      OPSPILOT_TEST_SOURCE_URL: postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5432/opspilot
+      ARTIFACT_DIR: ./artifacts
+      OMP_NUM_THREADS: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements-dev.txt
+
+      - name: Lint
+        run: ruff check backend data_pipeline ml_pipeline evaluation
+
+      - name: Fetch Olist dataset
+        run: python -m data_pipeline.fetch
+
+      - name: Data audit gate
+        run: python -m data_pipeline.audit
+
+      - name: Train and evaluate the model
+        run: python -m ml_pipeline.train
+
+      - name: Apply migrations
+        working-directory: backend
+        run: alembic upgrade head
+
+      - name: Ingest
+        run: python -m data_pipeline.ingest
+
+      - name: Create the test database
+        run: |
+          PGPASSWORD=opspilot_dev_pw psql -h 127.0.0.1 -U opspilot -d opspilot \
+            -c "CREATE DATABASE opspilot_test;"
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5432/opspilot_test
+        run: pytest backend/tests -v --cov=backend/app --cov=data_pipeline --cov=ml_pipeline
+
+      - name: Upload generated reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            docs/data_audit.md
+            docs/model_report.md
+            docs/model_metrics.json
+          if-no-files-found: warn
+
+  frontend:
+    name: Frontend build and E2E
+    runs-on: ubuntu-latest
+    needs: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: opspilot
+          POSTGRES_PASSWORD: opspilot_dev_pw
+          POSTGRES_DB: opspilot
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U opspilot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5432/opspilot
+      ARTIFACT_DIR: ./artifacts
+      OMP_NUM_THREADS: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Prepare data and model
+        run: |
+          python -m data_pipeline.fetch
+          python -m data_pipeline.audit
+          python -m ml_pipeline.train
+          (cd backend && alembic upgrade head)
+          python -m data_pipeline.ingest
+
+      - name: Typecheck and build the frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run build
+
+      - name: Start the API
+        run: |
+          PYTHONPATH="$PWD/backend:$PWD" \
+            uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 &
+          for i in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:8000/api/v1/health && break
+            sleep 2
+          done
+
+      - name: Serve the built frontend
+        working-directory: frontend
+        run: |
+          npx vite preview --host 127.0.0.1 --port 5173 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5173 >/dev/null && break
+            sleep 2
+          done
+
+      - name: Install Playwright
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: frontend
+        run: npx playwright test
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+  security:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fail on a committed secret
+        run: |
+          set -euo pipefail
+          echo "Scanning the working tree for credential patterns..."
+          # Real key shapes only; the .env.example placeholders are empty and
+          # must not trip this.
+          if grep -rInE \
+              -e 'AIza[0-9A-Za-z_-]{30,}' \
+              -e 'sk-ant-[0-9A-Za-z_-]{20,}' \
+              -e 'sk-[0-9A-Za-z]{40,}' \
+              -e 'postgres(ql)?://[^:@[:space:]]+:[^@[:space:]]+@' \
+              --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.venv \
+              --exclude='*.lock' --exclude='package-lock.json' \
+              . ; then
+            echo "::error::A credential-like string is present in the repository."
+            exit 1
+          fi
+          echo "No credential patterns found."
+
+      - name: Ensure .env is not tracked
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "::error::.env is tracked by git."
+            exit 1
+          fi
+          echo ".env is not tracked."

@@ -119,7 +119,7 @@ class DeadlineProximityRule:
 
     model_family = "rule_deadline_proximity"
 
-    def fit(self, X: pd.DataFrame, y: np.ndarray) -> "DeadlineProximityRule":
+    def fit(self, X: pd.DataFrame, y: np.ndarray) -> DeadlineProximityRule:
         return self
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:

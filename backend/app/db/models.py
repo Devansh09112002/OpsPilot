@@ -12,7 +12,7 @@ Two boundaries are enforced structurally rather than by convention:
 from __future__ import annotations
 
 import enum
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -26,7 +26,6 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -37,9 +36,8 @@ class Base(DeclarativeBase):
 
 
 def _utcnow() -> datetime:
-    from datetime import timezone
 
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -62,10 +60,12 @@ class OrderFeature(Base):
     order_delivered_carrier_date: Mapped[datetime] = mapped_column(DateTime, index=True)
     order_estimated_delivery_date: Mapped[datetime] = mapped_column(DateTime)
 
-    # Model features, stored as a JSON document so the feature set can evolve
-    # with the artifact without a migration per column. The served model
-    # validates the schema on load.
-    features: Mapped[dict] = mapped_column(JSONB)
+    # Model features as a JSON document, so the feature set can evolve with the
+    # artifact without a migration per column; the served model validates the
+    # schema on load. NULL for orders outside every snapshot: those are never
+    # scorable through any API path, and storing their documents would cost
+    # ~93 MB of a 500 MB free-tier database for no product capability.
+    features: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Denormalised for filtering and display only.
     customer_state: Mapped[str | None] = mapped_column(String(8), index=True)

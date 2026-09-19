@@ -11,8 +11,8 @@ from sqlalchemy import engine_from_config, pool
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from app.core.config import get_settings  # noqa: E402
-from app.db.models import Base  # noqa: E402
+from app.core.config import get_settings
+from app.db.models import Base
 
 config = context.config
 if config.config_file_name is not None:

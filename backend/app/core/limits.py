@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict, deque
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from threading import Lock
 
 from sqlalchemy import func, select
@@ -56,7 +56,7 @@ request_limiter = SlidingWindowLimiter(_settings.api_requests_per_minute, 60.0)
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def enforce_investigation_budget(db: Session, session: GuestSession) -> None:
@@ -82,19 +82,25 @@ def enforce_investigation_budget(db: Session, session: GuestSession) -> None:
             {"retry_after_utc": retry_at.isoformat(), "limit_type": "per_session_daily"},
         )
 
-    # Global hourly cap, protecting the project's overall API budget.
-    since = now - timedelta(hours=1)
-    global_count = db.execute(
-        select(func.count(Investigation.investigation_id)).where(
-            Investigation.created_at >= since
-        )
-    ).scalar_one()
-    if global_count >= settings.investigations_global_per_hour:
-        raise RateLimitError(
-            "OpsPilot has reached its hourly AI usage cap across all visitors. "
-            "Please try again shortly; the risk queue and predictions still work.",
-            {"limit_type": "global_hourly"},
-        )
+    # Global caps, keeping the deployment inside the provider's free-tier
+    # quota. Both are checked before the call is made, so hitting a limit
+    # costs a 429 rather than a failed paid request.
+    for window, limit, label in (
+        (timedelta(hours=1), settings.investigations_global_per_hour, "global_hourly"),
+        (timedelta(days=1), settings.investigations_global_per_day, "global_daily"),
+    ):
+        used = db.execute(
+            select(func.count(Investigation.investigation_id)).where(
+                Investigation.created_at >= now - window
+            )
+        ).scalar_one()
+        if used >= limit:
+            raise RateLimitError(
+                "OpsPilot has reached its shared AI usage cap for now, which "
+                "keeps this demo inside its free-tier quota. The risk queue and "
+                "model predictions still work; please try an investigation later.",
+                {"limit_type": label},
+            )
 
 
 def record_investigation_spend(session: GuestSession) -> None:

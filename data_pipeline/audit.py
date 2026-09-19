@@ -8,19 +8,18 @@ fails. Downstream stages refuse to run without a passing audit.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pandas as pd
 
 from data_pipeline import spec
 from data_pipeline.features import (
-    CATEGORICAL_FEATURES,
     FEATURE_AVAILABILITY,
     MODEL_FEATURES,
     build_feature_table,
     split_features_and_outcomes,
 )
-from data_pipeline.loading import compute_target, load_raw, select_eligible, sha256_of
+from data_pipeline.loading import load_raw, select_eligible, sha256_of
 from data_pipeline.snapshots import build_snapshot_members, validate_snapshots
 
 
@@ -141,7 +140,7 @@ def run_audit() -> dict:
     }
 
     report = {
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
         "source": {
             "name": "Olist Brazilian E-Commerce Public Dataset",
             "url": "https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce",

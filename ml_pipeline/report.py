@@ -102,5 +102,3 @@ def measure_latency(model, X: pd.DataFrame, n: int = 200) -> dict:
         "median_ms": round(float(np.median(arr)), 2),
         "p95_ms": round(float(np.percentile(arr, 95)), 2),
     }
-
-from ml_pipeline.render import render  # re-exported for train.py

@@ -144,7 +144,7 @@ def get_delivery_prediction(db: Session, order_id: str, snapshot_id: str) -> Too
         feature_row = orders.get_feature_row(db, order_id)
         order = orders.get_order_as_of(db, order_id, snapshot_id)
         probability = predictor.predict_one(feature_row.features or {})
-    except Exception as exc:  # noqa: BLE001 - surfaced as an honest tool failure
+    except Exception as exc:
         return ToolResult("get_delivery_prediction", ok=False,
                           error=_safe_error(exc, "The model prediction"))
 
@@ -194,7 +194,7 @@ def get_historical_context(db: Session, order_id: str, snapshot_id: str) -> Tool
     try:
         route = analytics.route_context(db, snapshot_id, order_id)
         category = analytics.category_context(db, snapshot_id, order_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return ToolResult("get_historical_context", ok=False,
                           error=_safe_error(exc, "Historical context"))
 

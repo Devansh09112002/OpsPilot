@@ -20,9 +20,11 @@ scipy==1.14.1
 pyarrow==25.0.1
 
 # --- Agent ---
+# Gemini is the provider because its free tier is the only one available to
+# this project at zero budget. Only app/agent/llm.py is provider-specific.
 langgraph==1.2.11
 langchain-core==1.6.3
-anthropic==1.7.0
+google-genai==2.24.0
 
 # --- Ops ---
 structlog==24.4.0

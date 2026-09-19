@@ -6,7 +6,7 @@ The endpoint inventory is deliberately narrow and matches
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -23,7 +23,7 @@ from app.core.logging import get_logger
 from app.core.sessions import get_guest_session
 from app.db.models import GuestSession
 from app.db.session import get_db
-from app.ml.predictor import predictor, prediction_computed_at, risk_band
+from app.ml.predictor import prediction_computed_at, predictor, risk_band
 from app.schemas.investigations import (
     AuditEventOut,
     DecisionResponse,
@@ -66,7 +66,7 @@ def rate_limit(request: Request) -> None:
 
 @router.get("/health", tags=["ops"], summary="Liveness")
 def health() -> dict:
-    return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
+    return {"status": "ok", "time": datetime.now(UTC).isoformat()}
 
 
 @router.get("/health/ready", tags=["ops"], summary="Readiness with dependencies")
@@ -83,7 +83,7 @@ def readiness(db: Session = Depends(get_db)) -> dict:
     try:
         db.execute(text("select 1"))
         checks["database"] = {"ok": True}
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         checks["database"] = {"ok": False, "error": type(exc).__name__}
 
     checks["model"] = (
@@ -94,7 +94,7 @@ def readiness(db: Session = Depends(get_db)) -> dict:
 
     try:
         checks["policy"] = {"ok": True, "version": policy_service.policy_version()}
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         checks["policy"] = {"ok": False, "error": str(exc)}
 
     settings = get_settings()
@@ -181,7 +181,7 @@ def create_prediction(
     feature_row = order_service.get_feature_row(db, payload.order_id)
     try:
         probability = predictor.predict_one(feature_row.features or {})
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise ServiceUnavailableError(
             "The model could not score this order.", {"reason": type(exc).__name__}
         ) from exc

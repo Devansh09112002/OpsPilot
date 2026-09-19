@@ -7,6 +7,8 @@ a model that predicts "never late" scores 96% and is useless.
 
 from __future__ import annotations
 
+import itertools
+
 import numpy as np
 from sklearn.metrics import (
     average_precision_score,
@@ -48,7 +50,7 @@ def calibration_bins(
     """Equal-width reliability bins, for the calibration table in the report."""
     edges = np.linspace(0.0, 1.0, n_bins + 1)
     out: list[dict] = []
-    for lo, hi in zip(edges[:-1], edges[1:]):
+    for lo, hi in itertools.pairwise(edges):
         mask = (scores >= lo) & (scores < hi if hi < 1.0 else scores <= hi)
         if not mask.any():
             continue
