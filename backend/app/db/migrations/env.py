@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from app.core.config import get_settings
 from app.db.models import Base
+from app.db.session import _is_pooled
 
 config = context.config
 if config.config_file_name is not None:
@@ -34,10 +35,19 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    # Alembic builds its own engine, so it does not inherit the application's
+    # connection settings. Against a transaction-mode pooler (Supabase on
+    # 6543) psycopg3's prepared statements fail intermittently, so the same
+    # rule has to be applied here or a migration can break halfway through.
+    connect_args: dict = {}
+    if _is_pooled(get_settings().database_url):
+        connect_args["prepare_threshold"] = None
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args,
     )
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
