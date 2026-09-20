@@ -382,3 +382,43 @@ def test_thinking_rejection_is_remembered_so_quota_is_not_wasted(with_key, monke
         "the thinking budget must not be re-sent to a model known to reject it"
     )
     llm_module._NO_THINKING.clear()
+
+
+def test_the_model_chain_stops_at_a_total_deadline(monkeypatch):
+    """A slow chain must not hold the single worker for minutes.
+
+    Each model failing slowly with a retryable error would otherwise cost
+    len(chain) x llm_timeout_seconds. The per-call timeout does not bound
+    that; a total budget does.
+    """
+    import time as time_module
+
+    from app.agent import llm as llm_module
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_timeout_seconds", 0.05, raising=False)
+    # `llm_model_chain` is a derived property, so the inputs are set instead.
+    monkeypatch.setattr(settings, "llm_model", "m1", raising=False)
+    monkeypatch.setattr(settings, "llm_model_fallbacks", "m2,m3,m4,m5", raising=False)
+    assert len(settings.llm_model_chain) == 5
+
+    attempted = []
+
+    def slow_retryable(_client, model, _config, _prompt):
+        attempted.append(model)
+        time_module.sleep(0.06)          # longer than the per-call budget
+        raise llm_module._TryNext("server_error")
+
+    monkeypatch.setattr(llm_module, "_call_one", slow_retryable)
+    monkeypatch.setattr(llm_module, "get_client", lambda: object())
+
+    started = time_module.perf_counter()
+    with pytest.raises(llm_module.LLMUnavailableError):
+        llm_module.generate_report("system", "user")
+    elapsed = time_module.perf_counter() - started
+
+    assert len(attempted) < 5, (
+        f"the whole chain was attempted ({attempted}); the deadline did not fire"
+    )
+    assert elapsed < 0.05 * 5, f"took {elapsed:.3f}s, longer than the budget allows"

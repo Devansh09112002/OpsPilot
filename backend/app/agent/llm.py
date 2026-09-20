@@ -244,7 +244,21 @@ def generate_report(system_prompt: str, user_prompt: str) -> LLMResult:
     used_model = ""
     reasons: list[str] = []
 
+    # A total deadline across the chain, not just per call. A timeout already
+    # aborts immediately rather than walking the chain, but several models
+    # failing slowly would still hold the single free-tier worker for minutes
+    # and block every other visitor. Two call-timeouts is the whole budget.
+    total_budget = settings.llm_timeout_seconds * 2
+
     for model in chain:
+        if time.perf_counter() - started > total_budget:
+            reasons.append("deadline")
+            log.warning(
+                "llm_chain_deadline_reached",
+                elapsed_s=round(time.perf_counter() - started, 1),
+                tried=len(reasons),
+            )
+            break
         try:
             response = _call_one(client, model, config, user_prompt)
             used_model = model
