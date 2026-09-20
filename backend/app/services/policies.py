@@ -16,12 +16,15 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+from data_pipeline import spec
+
 POLICY_PATH = Path(__file__).resolve().parents[3] / "policies" / "demo_policy_v2.json"
 
-# Stated on the model's CALIBRATED probability, so the number means what it
-# says. v1 used 0.60 on the raw output, where an observed late rate of ~2%
-# sat behind a 0.60 "score" - a threshold that read as strict and was not.
-ESCALATION_RISK_THRESHOLD = 0.15
+# Shared with the model's "high" band cut, so a band and the policy can never
+# disagree. Stated on the CALIBRATED probability, so the number means what it
+# says: v1 used 0.60 on the raw output, where an observed late rate of ~2% sat
+# behind a 0.60 "score" - a threshold that read as strict and was not.
+ESCALATION_RISK_THRESHOLD = spec.ESCALATION_THRESHOLD
 ESCALATION_SLACK_DAYS = 3
 
 

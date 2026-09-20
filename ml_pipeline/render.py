@@ -90,10 +90,13 @@ def render(p: dict) -> str:
               f"estimate ({calibration['mean_calibrated_test']:.4f}) now sits "
               f"close to the observed base rate "
               f"({calibration['test_base_rate']:.4f}).\n\n"
-              f"Risk bands are cut on the calibrated distribution rather than "
-              f"set by hand: **high** at {bands.get('high', 0):.4f} (the "
-              f"validation 95th percentile, roughly the review capacity), "
-              f"**medium** at {bands.get('medium', 0):.4f} (75th percentile)."
+              f"**High** is cut at {bands.get('high', 0):.4f}, which is the "
+              f"policy's escalation threshold rather than a quantile: a band "
+              f"that disagreed with the policy would let an order read as "
+              f"\"medium risk\" and still be escalated. So **high** means "
+              f"exactly \"clears the escalation threshold\". **Medium** at "
+              f"{bands.get('medium', 0):.4f} is the validation 75th "
+              f"percentile and is presentational only."
         )
     else:
         cal_summary = "_Model is not calibrated._"

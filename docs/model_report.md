@@ -134,7 +134,7 @@ score because calibration introduces ties.
 
 Calibration improves the Brier score **9.6x**, and the mean calibrated estimate (0.0886) now sits close to the observed base rate (0.0301).
 
-Risk bands are cut on the calibrated distribution rather than set by hand: **high** at 0.1659 (the validation 95th percentile, roughly the review capacity), **medium** at 0.1250 (75th percentile).
+**High** is cut at 0.1500, which is the policy's escalation threshold rather than a quantile: a band that disagreed with the policy would let an order read as "medium risk" and still be escalated. So **high** means exactly "clears the escalation threshold". **Medium** at 0.1250 is the validation 75th percentile and is presentational only.
 
 Reliability of the **calibrated** estimate on the held-out test split:
 
@@ -207,7 +207,7 @@ handover, and it caps how high Precision@50 can go.
 ## 11. Inference cost and latency
 
 Single-row `predict_proba` over 200 held-out rows, development
-machine, CPU only: median **3.99 ms**, p95 **4.4 ms**.
+machine, CPU only: median **4.18 ms**, p95 **5.07 ms**.
 Model inference is not the latency bottleneck; the network round trip and, for
 investigations, the LLM call dominate.
 

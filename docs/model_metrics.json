@@ -340,8 +340,8 @@
   ],
   "latency_ms": {
     "n_calls": 200,
-    "median_ms": 3.99,
-    "p95_ms": 4.4
+    "median_ms": 4.18,
+    "p95_ms": 5.07
   },
   "calibration": {
     "method": "isotonic (fitted on validation)",
@@ -351,7 +351,7 @@
     "mean_raw_test": 0.48243,
     "mean_calibrated_test": 0.08862,
     "band_thresholds": {
-      "high": 0.1659,
+      "high": 0.15,
       "medium": 0.125
     },
     "calibration_bins": [

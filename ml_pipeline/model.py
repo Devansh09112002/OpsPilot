@@ -23,6 +23,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from data_pipeline import spec
 from data_pipeline.features import CATEGORICAL_FEATURES, MODEL_FEATURES, NUMERIC_FEATURES
 
 ARTIFACT_FILENAME = "delivery_risk_model.joblib"
@@ -243,18 +244,23 @@ def calibrate(calibrator, raw_scores) -> np.ndarray:
 
 
 def derive_band_thresholds(calibrated_scores) -> dict[str, float]:
-    """Pick risk-band cut points from the calibrated validation distribution.
+    """Cut points for the risk bands shown in the product.
 
-    The cut points are quantiles rather than round numbers, so they track the
-    review capacity the product is built around: 'high' is roughly the top 5%
-    of a snapshot, which is the order of magnitude of the stated K=50 out of
-    ~1,000-1,500 pre-deadline orders. Hand-picked absolute thresholds would
-    drift out of meaning the moment the model changed.
+    `high` is the policy's escalation threshold, not a quantile. Deriving it
+    independently produced a band edge (0.1659) slightly above the policy
+    threshold (0.15), so an order could display as "medium risk" and still be
+    escalated - a state a reader would rightly find confusing, and one the
+    agent benchmark caught. Tying the band to the policy makes "high" mean
+    "qualifies for escalation if the deadline is close".
+
+    `medium` is the validation 75th percentile: purely presentational, marking
+    the upper quarter of a snapshot.
     """
     scores = np.asarray(calibrated_scores, dtype=float)
+    medium = round(float(np.quantile(scores, 0.75)), 4)
     return {
-        "high": round(float(np.quantile(scores, 0.95)), 4),
-        "medium": round(float(np.quantile(scores, 0.75)), 4),
+        "high": spec.ESCALATION_THRESHOLD,
+        "medium": min(medium, spec.ESCALATION_THRESHOLD),
     }
 
 

@@ -26,6 +26,7 @@ os.environ.setdefault("ENVIRONMENT", "test")
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
@@ -45,6 +46,18 @@ SOURCE_URL = os.environ.get(
     "OPSPILOT_TEST_SOURCE_URL",
     "postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5433/opspilot",
 )
+
+# The test database is dropped and recreated on every run. If it ever points
+# at the ingested source, that drop destroys the data the whole suite reads
+# from, and every test then "passes" by skipping. Refuse instead: a suite that
+# silently deletes its own input is worse than one that will not start.
+if make_url(os.environ["DATABASE_URL"]).render_as_string(hide_password=False) ==         make_url(SOURCE_URL).render_as_string(hide_password=False):
+    raise RuntimeError(
+        "DATABASE_URL points at the ingested source database "
+        f"({make_url(SOURCE_URL).database!r}). The test database is dropped on "
+        "every run. Unset DATABASE_URL to use the default test database, or "
+        "point OPSPILOT_TEST_SOURCE_URL somewhere else."
+    )
 
 SEED_SNAPSHOT = "2018-08-15"
 SEED_ORDERS = 400

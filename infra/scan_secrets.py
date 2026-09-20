@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 # Provider key shapes. Placeholders in .env.example are empty, so any hit is a
 # real key.
@@ -100,9 +101,27 @@ class Finding:
     excerpt: str
 
 
-def _tracked_files() -> list[str]:
+def _repo_root() -> Path:
     out = subprocess.run(
-        ["git", "ls-files"], capture_output=True, text=True, check=True
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    return Path(out)
+
+
+def _tracked_files() -> list[str]:
+    """Every tracked file, named relative to the repository root.
+
+    Anchored to the root deliberately. `git ls-files` with no arguments lists
+    only the tree below the working directory, so invoking the scanner from a
+    subdirectory would quietly scan a subset and report it clean - the worst
+    failure mode a secret scanner can have. It also broke the skip list, whose
+    entries are root-relative.
+    """
+    root = _repo_root()
+    out = subprocess.run(
+        ["git", "-C", str(root), "ls-files"],
+        capture_output=True, text=True, check=True,
     ).stdout
     return [
         f for f in out.splitlines()
@@ -114,9 +133,10 @@ def _tracked_files() -> list[str]:
 
 def scan() -> list[Finding]:
     findings: list[Finding] = []
+    root = _repo_root()
     for path in _tracked_files():
         try:
-            with open(path, encoding="utf-8", errors="ignore") as fh:
+            with open(root / path, encoding="utf-8", errors="ignore") as fh:
                 lines = fh.readlines()
         except (OSError, IsADirectoryError):
             continue

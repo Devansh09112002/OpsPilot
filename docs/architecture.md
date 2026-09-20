@@ -118,6 +118,16 @@ during training and inflates every output, so a raw 0.65 corresponded to a 2.4%
 observed late rate. Showing that to a person is misleading whatever the caption
 says.
 
+**The band and the policy share one number.** `high` is not a quantile: it is
+the policy's escalation threshold, 0.15, defined once in `data_pipeline/spec.py`
+and read by both the model's band cut and `services/policies.py`. Deriving them
+independently put the band edge at 0.1659 and the policy at 0.15, so an order
+could display as "medium risk" and still be escalated - which the agent
+benchmark caught as a failure, correctly. "High" now means exactly "clears the
+escalation threshold". The calibrated distribution happens to be empty between
+0.1493 and 0.1659, so the partition is insensitive to where in that gap the cut
+falls.
+
 The queue nonetheless sorts on the raw score, because isotonic calibration is
 monotonic **non-decreasing** — it creates ties. Ordering by the tied calibrated
 values would quietly change the ranking that every published metric was

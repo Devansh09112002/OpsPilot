@@ -1,7 +1,7 @@
 {
   "model_version": "xgboost-20260920",
   "model_family": "xgboost",
-  "trained_at_utc": "2026-09-20T13:51:15+00:00",
+  "trained_at_utc": "2026-09-20T16:13:40+00:00",
   "training_cutoff": "2018-03-01",
   "feature_names": [
     "days_handover_to_estimate",
@@ -286,7 +286,7 @@
   "calibrated": true,
   "calibration_method": "isotonic",
   "band_thresholds": {
-    "high": 0.1659,
+    "high": 0.15,
     "medium": 0.125
   },
   "calibration_metrics": {
@@ -297,7 +297,7 @@
     "mean_raw_test": 0.48243,
     "mean_calibrated_test": 0.08862,
     "band_thresholds": {
-      "high": 0.1659,
+      "high": 0.15,
       "medium": 0.125
     },
     "calibration_bins": [

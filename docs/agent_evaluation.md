@@ -1,6 +1,6 @@
 # OpsPilot - Agent Evaluation
 
-Generated: 2026-09-20T12:25:23+00:00
+Generated: 2026-09-20T16:26:58+00:00
 Provider model: `gemini-3.5-flash-lite`
 
 **Held-out pass rate: 100.0%** (30/30 cases) against a target of 85%.
@@ -79,15 +79,15 @@ _No case failed._
 
 ## 6. Latency
 
-- median **3303 ms**, p95 **5384 ms**, max 14927 ms
+- median **2831 ms**, p95 **4954 ms**, max 5324 ms
 
 Measured end to end for the whole investigation - four tool calls plus one
 provider call - on the development machine against a local database.
 
 ## 7. Cost
 
-- 49 provider calls; median 2763 input / 475 output tokens per investigation
-- benchmark total: 133,832 input, 26,962 output tokens
+- 49 provider calls; median 3576 input / 527 output tokens per investigation
+- benchmark total: 173,511 input, 28,370 output tokens
 - Gemini free tier: no monetary cost. The equivalent paid rate for gemini-2.5-flash would be well under US$0.01 per investigation at these token counts.
 
 ## 8. Interpretation and limits

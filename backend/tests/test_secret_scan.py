@@ -7,6 +7,8 @@ placeholder rules are tested as carefully as the detection rules.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from infra.scan_secrets import dsn_is_a_leak, is_local_host, is_placeholder_password, scan
@@ -90,3 +92,21 @@ def test_this_repository_is_clean():
     assert findings == [], "\n".join(
         f"{f.path}:{f.line_no} {f.reason}" for f in findings
     )
+
+def test_scan_is_independent_of_working_directory(tmp_path, monkeypatch):
+    """The scanner must cover the whole repository wherever it is invoked from.
+
+    `git ls-files` with no path argument lists only the tree below the current
+    directory, so a scanner that trusted it would report a subdirectory clean
+    and call the repository clean - a false negative in the one tool whose
+    false negatives publish credentials.
+    """
+    from infra import scan_secrets
+
+    root_files = set(scan_secrets._tracked_files())
+    assert len(root_files) > 1
+
+    for subdir in ("backend", "infra", "frontend"):
+        monkeypatch.chdir(Path(scan_secrets._repo_root()) / subdir)
+        assert set(scan_secrets._tracked_files()) == root_files
+        assert scan_secrets.scan() == []

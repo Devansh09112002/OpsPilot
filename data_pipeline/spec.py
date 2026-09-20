@@ -73,4 +73,14 @@ SNAPSHOTS: list[dict[str, str]] = [
 # Operational review capacity used for the primary Precision@K metric.
 REVIEW_CAPACITY_K = 50
 
+# The calibrated probability at or above which the demo policy permits a
+# carrier escalation (with <= 3 days of slack). Stated on the CALIBRATED
+# estimate, so it means what it says: roughly a one-in-seven chance of missing
+# the date, against a marketplace baseline near 3%.
+#
+# The "high" risk band is cut here too. A band that disagreed with the policy
+# would produce the confusing state of a "medium risk" order being escalated,
+# which is exactly what the benchmark caught when they were set independently.
+ESCALATION_THRESHOLD = 0.15
+
 RANDOM_SEED = 42
