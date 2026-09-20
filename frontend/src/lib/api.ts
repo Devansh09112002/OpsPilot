@@ -13,6 +13,8 @@ import type {
   OrderAsOf,
   OrderPage,
   RiskBand,
+  SituationDetail,
+  SituationSummary,
   Snapshot,
   SnapshotStats,
   TicketList,
@@ -139,6 +141,20 @@ export const api = {
   reject: (proposalId: string) =>
     request<DecisionResponse>(
       `/proposals/${encodeURIComponent(proposalId)}/reject`,
+      { method: "POST" },
+    ),
+
+  situations: (snapshotId: string, limit = 20) =>
+    request<SituationSummary[]>(
+      `/snapshots/${encodeURIComponent(snapshotId)}/situations?limit=${limit}`,
+    ),
+
+  situation: (situationId: string) =>
+    request<SituationDetail>(`/situations/${encodeURIComponent(situationId)}`),
+
+  investigateSituation: (situationId: string, mode: "llm" | "deterministic" = "llm") =>
+    request<Investigation>(
+      `/situations/${encodeURIComponent(situationId)}/investigations?mode=${mode}`,
       { method: "POST" },
     ),
 

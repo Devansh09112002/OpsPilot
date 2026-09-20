@@ -13,6 +13,8 @@ import { api } from "./lib/api";
 import { type WakeState, wakeBackend } from "./lib/wakeup";
 import OrderInvestigation from "./pages/OrderInvestigation";
 import RiskQueue from "./pages/RiskQueue";
+import SituationDetail from "./pages/SituationDetail";
+import Situations from "./pages/Situations";
 import Tickets from "./pages/Tickets";
 import type { Meta } from "./types";
 
@@ -52,6 +54,7 @@ export default function App() {
             <NavLink to="/" end>
               Risk queue
             </NavLink>
+            <NavLink to="/situations">Situations</NavLink>
             <NavLink to="/tickets">Tickets</NavLink>
           </nav>
         </div>
@@ -100,6 +103,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<RiskQueue />} />
             <Route path="/orders/:orderId" element={<OrderInvestigation />} />
+            <Route path="/situations" element={<Situations />} />
+            <Route path="/situations/:situationId" element={<SituationDetail />} />
             <Route path="/tickets" element={<Tickets />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

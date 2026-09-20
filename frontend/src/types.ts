@@ -116,7 +116,10 @@ export interface FactItem {
 export interface Proposal {
   proposal_id: string;
   investigation_id: string;
-  order_id: string;
+  subject_type: "order" | "situation";
+  subject_id: string;
+  order_id: string | null;
+  member_order_ids: string[] | null;
   snapshot_id: string;
   status: ProposalStatus;
   action_type: string;
@@ -127,7 +130,13 @@ export interface Proposal {
 
 export interface Investigation {
   investigation_id: string;
-  order_id: string;
+  subject_type: "order" | "situation";
+  subject_id: string;
+  /** "model" when an LLM wrote the prose, "deterministic" when the backend
+   *  assembled it from tool results with no provider call. */
+  generated_by: "model" | "deterministic";
+  situation: InvestigationSituation | null;
+  order_id: string | null;
   snapshot_id: string;
   status: InvestigationStatus;
   prediction_as_of: string | null;
@@ -151,6 +160,9 @@ export interface Investigation {
 export interface Ticket {
   ticket_id: string;
   proposal_id: string;
+  subject_type: "order" | "situation";
+  subject_id: string;
+  member_order_ids: string[] | null;
   investigation_id: string;
   order_id: string;
   snapshot_id: string;
@@ -193,4 +205,58 @@ export interface Meta {
   policy_version: string;
   llm_configured: boolean;
   dataset: { name: string; url: string; license: string };
+}
+
+
+export interface InvestigationSituation {
+  situation_id: string;
+  lane: string;
+  n_flagged: number;
+  n_escalatable: number;
+  expected_late: number;
+}
+
+export interface SituationSummary {
+  situation_id: string;
+  snapshot_id: string;
+  seller_state: string;
+  customer_state: string;
+  lane: string;
+  n_flagged: number;
+  n_high: number;
+  n_lane_total: number;
+  share_of_lane: number;
+  /** Sum of member calibrated probabilities: how many of these orders the
+   *  model expects to arrive late. Only meaningful because the scores are
+   *  calibrated. */
+  expected_late: number;
+  mean_risk: number;
+  max_risk: number;
+  n_escalatable: number;
+  model_version: string | null;
+}
+
+export interface SituationMember {
+  order_id: string;
+  risk_probability: number;
+  risk_band: RiskBand;
+  days_in_transit: number | null;
+  product_category: string | null;
+  days_to_deadline: number;
+  escalatable: boolean;
+}
+
+export interface LaneHistory {
+  available: boolean;
+  label: string;
+  sample_size: number;
+  late_rate: number | null;
+  baseline_rate: number | null;
+  baseline_sample: number;
+  caveats: string[];
+}
+
+export interface SituationDetail extends SituationSummary {
+  members: SituationMember[];
+  lane_history: LaneHistory;
 }

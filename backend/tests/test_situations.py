@@ -361,3 +361,71 @@ def test_another_session_cannot_see_a_lane_ticket(client, second_client, db):
     assert second_client.post(
         f"/api/v1/proposals/{body['proposal']['proposal_id']}/approve"
     ).status_code == 404
+
+
+def test_the_api_returns_every_field_the_service_produces(client, db):
+    """Guard against extending the dataclass but not the response model.
+
+    Both `n_escalatable` and `days_to_deadline` were added to the service and
+    silently dropped by Pydantic, which showed up only as a blank page in the
+    browser. Comparing the two shapes catches it at the API boundary.
+    """
+    situation = _any_situation(db)
+    detail = situations.get_situation(db, situation.situation_id)
+    expected = detail.as_dict(with_members=True)
+
+    body = client.get(f"/api/v1/situations/{situation.situation_id}").json()
+    missing = set(expected) - set(body)
+    assert not missing, f"response model drops {sorted(missing)}"
+
+    member_fields = set(expected["members"][0])
+    missing_member = member_fields - set(body["members"][0])
+    assert not missing_member, f"member model drops {sorted(missing_member)}"
+
+    listed = client.get(f"/api/v1/snapshots/{SNAPSHOT}/situations?limit=1").json()[0]
+    summary_fields = set(detail.as_dict(with_members=False))
+    assert not summary_fields - set(listed), (
+        f"summary model drops {sorted(summary_fields - set(listed))}"
+    )
+
+
+def test_the_llm_endpoint_runs_and_counts_against_the_budget(client, db, monkeypatch):
+    """Covers the endpoint wiring itself, which the deterministic path skips.
+
+    `record_investigation_spend` was called with the wrong arity here and the
+    deterministic tests never touched it, so the LLM path 500'd after already
+    spending provider quota.
+    """
+    _stub_situation_llm(monkeypatch, InvestigationReport(
+        summary="Lane review.",
+        facts=[FactItem(statement="The lane carries flagged orders.",
+                        evidence_ids=["situation.n_flagged"])],
+        limitations=[],
+        recommendation="monitor",
+        recommendation_rationale="Monitoring.",
+    ))
+    situation = _any_situation(db)
+    response = client.post(
+        f"/api/v1/situations/{situation.situation_id}/investigations?mode=llm"
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["status"] == "completed"
+    assert body["generated_by"] == "model"
+
+
+def test_a_deterministic_brief_does_not_spend_provider_budget(client, db):
+    """The whole point of the fallback: it must not draw on the quota."""
+    from app.db.models import GuestSession
+
+    situation = _any_situation(db)
+    client.get("/api/v1/tickets")  # establishes the session
+    before = db.execute(select(GuestSession)).scalars().first()
+    spent_before = before.investigations_today if before else 0
+
+    client.post(
+        f"/api/v1/situations/{situation.situation_id}/investigations?mode=deterministic"
+    )
+    db.expire_all()
+    after = db.execute(select(GuestSession)).scalars().first()
+    assert after.investigations_today == spent_before

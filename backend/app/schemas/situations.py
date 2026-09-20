@@ -15,6 +15,10 @@ class SituationMemberOut(BaseModel):
     risk_band: str
     days_in_transit: float | None = None
     product_category: str | None = None
+    days_to_deadline: float
+    escalatable: bool = Field(
+        description="Whether this order independently qualifies under ESC-01."
+    )
 
 
 class SituationSummary(BaseModel):
@@ -36,6 +40,9 @@ class SituationSummary(BaseModel):
     )
     mean_risk: float
     max_risk: float
+    n_escalatable: int = Field(
+        0, description='Members that independently qualify under ESC-01.'
+    )
     model_version: str | None = None
 
 

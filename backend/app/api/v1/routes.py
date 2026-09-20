@@ -313,14 +313,16 @@ def start_situation_investigation(
     # The situation must exist before any budget is spent on it.
     situation_service.get_situation(db, situation_id)
 
+    # Counted when the run starts, not when it finishes. A run that fails
+    # still consumed provider quota, and charging only successes would let a
+    # repeatedly-failing call drain the free tier for free.
     if mode == "llm":
         enforce_investigation_budget(db, session)
+        record_investigation_spend(session)
     started = datetime.now(UTC)
     investigation = investigation_service.run_situation_and_persist(
         db, session_id=session.session_id, situation_id=situation_id, mode=mode
     )
-    if mode == "llm":
-        record_investigation_spend(db, session)
     log.info(
         "situation_investigation_request",
         request_id=getattr(request.state, "request_id", None),
