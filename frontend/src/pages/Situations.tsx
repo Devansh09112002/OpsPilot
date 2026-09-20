@@ -119,7 +119,7 @@ export default function Situations() {
           </div>
           <div className="stat">
             <span className="stat__value">{totalExpected.toFixed(1)}</span>
-            <span className="stat__label">expected late deliveries</span>
+            <span className="stat__label">total risk load</span>
           </div>
         </div>
       )}

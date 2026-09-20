@@ -226,9 +226,10 @@ export interface SituationSummary {
   n_high: number;
   n_lane_total: number;
   share_of_lane: number;
-  /** Sum of member calibrated probabilities: how many of these orders the
-   *  model expects to arrive late. Only meaningful because the scores are
-   *  calibrated. */
+  /** Sum of the member orders' calibrated risk estimates. Summable only
+   *  because the scores are calibrated, but measured against held-out
+   *  snapshots it overstates the number actually late by roughly half again
+   *  (docs/snapshot_calibration.md). For comparing lanes, not forecasting. */
   expected_late: number;
   mean_risk: number;
   max_risk: number;

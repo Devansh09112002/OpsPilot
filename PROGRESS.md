@@ -46,7 +46,7 @@ output inspected.
 - Single-row inference: median 11 ms.
 
 ### Backend and agent
-- 117 backend tests pass; ruff clean.
+- 222 backend tests pass; ruff clean. A README test asserts that number stays true.
 - **20 E2E browser journeys pass against the deployed site**, including the full
   approve path (5.5 s) and the reject path (6.7 s). The twelfth is correctly
   skipped: it asserts the no-LLM failure path, which does not apply when a key

@@ -180,7 +180,7 @@ for work no model did. Those runs are now skipped like a quota failure.
 
 ### Regression and deployment — met
 
-- 181 backend tests pass.
+- 222 backend tests pass.
 - 20 browser journeys pass **against the deployed site**, 1 correctly skipped
   (the no-LLM path, which does not apply when a key is configured).
 - `infra.verify_deployment`: 37/37 against the public URL.

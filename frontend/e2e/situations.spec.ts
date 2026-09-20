@@ -212,3 +212,27 @@ test.describe("Accessibility and empty states", () => {
     await expect(page.locator("text=/No lane situations/i")).toBeVisible();
   });
 });
+
+test.describe("Honest wording", () => {
+  test("no screen presents the risk load as a forecast of a count", async ({ page }) => {
+    // The sum of member probabilities overstates the number actually late by
+    // about 1.5x on held-out data (docs/snapshot_calibration.md). The backend
+    // surfaces are covered by a unit test; this covers what a visitor reads.
+    // A stat card slipped through once and was caught by a screenshot.
+    for (const path of ["/situations", "/"]) {
+      await page.goto(path);
+      await page.waitForTimeout(1500);
+      const body = (await page.locator("body").innerText()).toLowerCase();
+      for (const phrase of [
+        "expected late deliveries",
+        "expects to arrive late",
+        "expects to be delivered late",
+      ]) {
+        expect(body, `${path} claims: ${phrase}`).not.toContain(phrase);
+      }
+    }
+
+    await page.goto("/situations");
+    await expect(page.locator("text=/overstates/i").first()).toBeVisible();
+  });
+});

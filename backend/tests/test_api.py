@@ -417,3 +417,29 @@ def test_routes_receive_the_request_id_rather_than_none(client, monkeypatch):
     )
     if seen:
         assert seen.get("request_id") is not None, "route logged request_id=None"
+
+
+# ---------------------------------------------------------------------------
+# Documentation that drifts is documentation that misleads
+# ---------------------------------------------------------------------------
+
+def test_the_readme_states_the_real_test_count(request):
+    """Stop the published test count going stale.
+
+    The README quoted 181 while the suite had 221, and PROGRESS quoted 117.
+    A number in a README is a claim; this makes it a checked one.
+    """
+    import re
+    from pathlib import Path
+
+    readme = Path(__file__).resolve().parents[2] / "README.md"
+    text = readme.read_text(encoding="utf-8")
+    match = re.search(r"pytest backend/tests\s+#\s*(\d+)\s+backend tests", text)
+    assert match, "README no longer states a backend test count in the expected form"
+
+    claimed = int(match.group(1))
+    actual = request.session.testscollected
+    assert claimed == actual, (
+        f"README claims {claimed} backend tests; the suite collected {actual}. "
+        "Update the README."
+    )

@@ -244,10 +244,15 @@ jobs:
           echo "$ready" | python -c "
           import json, sys
           r = json.load(sys.stdin)
-          assert r['status'] == 'ok', r
+          # 'degraded' is the correct status here: CI configures no provider
+          # key, and readiness is expected to say so rather than claim ok.
+          assert r['status'] in ('ok', 'degraded'), r
           for check in ('database', 'model', 'policy'):
               assert r['checks'][check]['ok'], (check, r['checks'][check])
-          print('health: database, model and policy all ok')
+          assert r['checks']['llm']['configured'] is False, (
+              'CI must not be spending free-tier quota'
+          )
+          print(f"health: {r['status']} - database, model and policy ok, no LLM key")
           "
           snapshots=$(curl -fsS http://localhost:8000/api/v1/snapshots)
           echo "$snapshots" | python -c "
