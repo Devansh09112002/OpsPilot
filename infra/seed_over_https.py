@@ -82,7 +82,6 @@ def create_schema(client: httpx.Client, ref: str) -> None:
     head so a future migration run from an unrestricted network continues
     correctly rather than trying to re-create everything.
     """
-    from sqlalchemy.schema import CreateTable
 
     from sqlalchemy import create_mock_engine
 
@@ -157,7 +156,7 @@ def _sql_literal(value: Any) -> str:
         pass  # arrays and other non-scalars are not null-checkable
     if isinstance(value, bool):
         return "true" if value else "false"
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return repr(value)
     if isinstance(value, pd.Timestamp):
         return "'" + value.isoformat(sep=" ") + "'"
@@ -183,8 +182,8 @@ def load_data(client: httpx.Client, ref: str) -> None:
     outcomes = pd.read_parquet(spec.PROCESSED_DIR / "order_outcomes.parquet")
     members = pd.read_parquet(spec.PROCESSED_DIR / "snapshot_members.parquet")
 
-    from ml_pipeline.model import load_artifact, predict_risk
     from data_pipeline.ingest import risk_band
+    from ml_pipeline.model import load_artifact, predict_risk
 
     model, meta = load_artifact(spec.ARTIFACT_DIR)
     model_version = meta["model_version"]
