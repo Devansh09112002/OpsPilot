@@ -7,7 +7,7 @@ Target: a publicly reachable HTTPS demo at **zero cost**.
 | API | Render Web Service (Docker) | Free | Runs the FastAPI process, the model artifact and the agent in one container. |
 | Frontend | Render Static Site | Free | Serves the built Vite bundle over HTTPS on a CDN. |
 | Database | Supabase PostgreSQL | Free | Render's free Postgres is **deleted after 30 days**; a Supabase free project persists. |
-| LLM | Google Gemini API | Free tier | `gemini-3.5-flash`, no card required. |
+| LLM | Google Gemini API | Free tier | `gemini-3.5-flash-lite` plus a fallback chain, no card required. |
 | CI/CD | GitHub Actions | Free | Tests on every push; a scheduled ping keeps the free services warm. |
 
 Nothing here requires a card, and no step enables billing.
@@ -22,7 +22,7 @@ Nothing here requires a card, and no step enables billing.
 | Render free tier: 512 MB RAM, 0.1 CPU | OOM if the process is fat | Measured ~340 MB RSS. Image pins one worker and single-threaded BLAS/OpenMP. |
 | Supabase free project pauses after ~7 days with no activity | Database unreachable until manually resumed | Keepalive touches the DB through `/health/ready`. `/health/ready` reports `unavailable`, and the UI says the database is paused rather than showing an empty queue. |
 | Supabase free: 500 MB storage | Ingest must fit | Ingest stores feature documents only for the 3,912 scorable orders, so the database is **53 MB**. |
-| Gemini free tier: per-minute and per-day request quotas | 429s under load | Per-session (10/day), global hourly (60) and global daily (180) caps are enforced *before* the call, returning a clear 429. |
+| **Gemini free tier: 20 requests per model per DAY** (measured, not documented) | A single-model demo stops working after 20 investigations | `generate_report` walks a chain of five interchangeable flash-tier models and uses the first with quota left, giving roughly 100/day. App caps (5 per visitor/day, 25/hour, 80/day) sit below that and are enforced *before* the call. |
 
 ---
 
@@ -31,9 +31,38 @@ Nothing here requires a card, and no step enables billing.
 1. Go to <https://aistudio.google.com/apikey>.
 2. Sign in with a Google account and choose **Create API key**.
 3. Pick **Create API key in new project** if prompted.
-4. Copy the key (it starts with `AIza...`).
+4. Copy the key. Newer keys begin `AQ.`; older ones begin `AIza`. Both work.
 
 No billing account is required. The free tier is rate-limited, not charged.
+
+### The quota that actually matters
+
+The free tier allows **20 `generateContent` requests per model per day**
+(`GenerateRequestsPerDayPerProjectPerModel`). That is per *model*, not per
+project, which is why OpsPilot configures a chain:
+
+```
+LLM_MODEL=gemini-3.5-flash-lite
+LLM_MODEL_FALLBACKS=gemini-3.5-flash,gemini-3.6-flash,gemini-3-flash-preview,gemini-3.1-flash-lite
+```
+
+When one model's daily quota is gone the client moves to the next, so the demo
+sustains roughly 100 investigations a day instead of 20. Every model in the
+chain is the same flash tier producing the same structured report, and the one
+that answered is recorded on the investigation.
+
+Two model quirks worth knowing:
+
+- `gemini-2.5-*` models are **retired for newly issued keys** — they appear in
+  the model list but `generateContent` returns 404.
+- `gemini-3.5-flash-lite` rejects a thinking budget with a bare 400. The client
+  retries once without it rather than discarding a working model.
+
+If a model name in the chain stops working, probe the account's real list:
+
+```bash
+curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API_KEY"   | grep -o '"name": "models/gemini[^"]*"'
+```
 
 ---
 
@@ -216,7 +245,9 @@ The database is separate from the deploy, so a rollback never loses tickets.
 | Every reload loses tickets | Cookie rejected | `CORS_ORIGINS` must be the exact frontend origin; `COOKIE_SECURE=true`, `COOKIE_SAMESITE=none`. |
 | `/health/ready` says database not ok | Supabase project paused | Resume it in the Supabase dashboard; confirm the keepalive variable from step 6 is set. |
 | API restarts repeatedly, logs mention memory | 512 MB exceeded | Confirm one worker and the `*_NUM_THREADS=1` variables from the Dockerfile are in effect. |
-| Investigations return 429 | Free-tier quota reached, working as designed | Wait, or raise the caps only if the provider quota genuinely allows it. |
+| Investigations return 429 | App cap reached, working as designed | Wait for the window, or raise the caps only if the provider quota genuinely allows it. |
+| "Every configured AI model has exhausted its free-tier quota" | All chain models used their 20/day | Wait for the daily reset, or add another working model to `LLM_MODEL_FALLBACKS`. |
+| Investigations fail with HTTP 404 from the provider | A chain model was retired | Probe the account's model list (Step 1) and update `LLM_MODEL_FALLBACKS`. |
 | `psycopg.OperationalError: too many connections` | Using the direct connection (5432) | Switch to the session pooler (6543). |
 
 ---

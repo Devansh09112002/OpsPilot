@@ -284,6 +284,13 @@ def score(case: Case, state, result: CaseResult) -> CaseResult:
                 result.no_outcome_leaked = False
                 result.notes.append(f"outcome marker in report prose: {marker}")
 
+        if case.expect_any_limitation and not report.limitations:
+            result.limitation_present = False
+            result.notes.append(
+                "expected the report to record a limitation about the missing "
+                "evidence, but limitations was empty"
+            )
+
         if case.expect_limitation_mentioning:
             needle = case.expect_limitation_mentioning.lower()
             result.limitation_present = any(

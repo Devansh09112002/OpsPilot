@@ -57,7 +57,12 @@ class Case:
     expect_status: str | None = None
     expect_proposal: bool | None = None
     expect_recommendation_in: tuple[str, ...] | None = None
+    # Only use this for text the BACKEND generates deterministically (e.g. the
+    # invented-policy notice). Matching a word inside free-form model prose
+    # measures phrasing, not behaviour.
     expect_limitation_mentioning: str | None = None
+    # Behavioural: the report must acknowledge that something was missing.
+    expect_any_limitation: bool = False
 
     # Fault injection applied by the runner before the case runs.
     fault: str | None = None
@@ -191,7 +196,10 @@ def build_cases(db: Session) -> list[Case]:
             order_id=ref_order, snapshot_id=ref_snapshot,
             description="Historical comparison below the minimum sample size",
             expect_status="completed",
-            expect_limitation_mentioning="minimum",
+            # The route rate is withheld, so the report must record a
+            # limitation. It must also not cite a route rate - already covered
+            # by the claim-support check, since no such evidence exists.
+            expect_any_limitation=True,
             fault="sparse_history",
         ),
         Case(

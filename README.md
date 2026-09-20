@@ -138,7 +138,7 @@ open http://localhost:5173
 ### Tests
 
 ```bash
-pytest backend/tests                        # 108 backend tests
+pytest backend/tests                        # 114 backend tests
 cd frontend && npx playwright test          # browser journeys
 python -m evaluation.agent.run_benchmark    # agent benchmark
 ```
@@ -182,11 +182,21 @@ docs/           audit, model report, agent evaluation, API, architecture, deploy
 ## Deployment status
 
 Free tier throughout: Render (API + static site), Supabase (PostgreSQL),
-Google Gemini (`gemini-3.5-flash`). No paid service is used.
+Google Gemini (`gemini-3.5-flash-lite` with a fallback chain). No paid
+service is used.
 
-The free tier's behaviour is handled rather than hidden — the app waits for a
-sleeping instance and says so, and reports a paused database as paused. See
-[`docs/deployment.md`](docs/deployment.md).
+The free tier's behaviour is handled rather than hidden:
+
+- The app waits for a sleeping instance and says so, instead of showing a
+  broken page.
+- A paused database is reported as paused.
+- Gemini's free tier allows only **20 requests per model per day**, so the
+  client walks a chain of five interchangeable flash models and uses the first
+  with quota left — roughly 100 investigations a day rather than 20. When the
+  whole chain is spent it says exactly that, and the risk queue and model
+  predictions keep working.
+
+See [`docs/deployment.md`](docs/deployment.md).
 
 ---
 

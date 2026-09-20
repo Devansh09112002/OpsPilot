@@ -220,11 +220,26 @@ def verify(state: InvestigationState) -> InvestigationState:
         )
 
     # Policy ids mentioned anywhere in the prose must be real.
-    valid_sections = {s.section_id for s in policies.all_sections()}
+    # The policy document may be missing or malformed - `gather_policy` already
+    # recorded that as a tool failure. Verification must still run rather than
+    # crash the whole investigation, so an unreadable policy means "cannot
+    # validate citations" instead of an exception.
+    try:
+        valid_sections = {s.section_id for s in policies.all_sections()}
+        policy_readable = True
+    except policies.PolicyUnavailableError:
+        valid_sections = set()
+        policy_readable = False
     mentioned = set(re.findall(r"\b(?:ESC|EVI|ACT)-\d{2}\b",
                                f"{report.summary} {report.recommendation_rationale}"))
-    invented = mentioned - valid_sections
-    if invented:
+    if not policy_readable:
+        extra_limitations.append(
+            "The demonstration policy document could not be read, so no policy "
+            "citation in this report could be verified and no escalation is "
+            "proposed."
+        )
+        log.warning("investigation_policy_unreadable", order_id=state.order_id)
+    elif invented := (mentioned - valid_sections):
         extra_limitations.append(
             f"Reference(s) to non-existent policy section(s) {sorted(invented)} were "
             "flagged by the backend and should be disregarded."
