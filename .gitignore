@@ -64,3 +64,4 @@ frontend/playwright-report/
 _mem*.py
 _dbg.py
 _probe.py
+_bench*.log
