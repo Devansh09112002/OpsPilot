@@ -69,10 +69,6 @@ class Case:
     fault_detail: dict = field(default_factory=dict)
 
 
-# Escalation requires risk >= 0.60 AND <= 3 days of slack (policy ESC-01).
-_ESCALATABLE_SQL_NOTE = "risk >= 0.60 and <= 3 days to the promised date"
-
-
 def _pick(
     db: Session, snapshot_id: str, *, band: str, overdue: bool, limit: int
 ) -> list[SnapshotOrder]:

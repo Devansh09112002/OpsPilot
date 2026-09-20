@@ -403,9 +403,6 @@ def provision_render(env: dict[str, str]) -> dict[str, str]:
                 "serviceDetails": {
                     "buildCommand": "cd frontend && npm ci && npm run build",
                     "publishPath": "./frontend/dist",
-                    "routes": [
-                        {"type": "rewrite", "source": "/*", "destination": "/index.html"}
-                    ],
                 },
                 "envVars": _env_var_list(web_env),
             })
@@ -416,6 +413,19 @@ def provision_render(env: dict[str, str]) -> dict[str, str]:
                 )
             web = resp.json().get("service", resp.json())
             print(f"  created {web['id']}")
+
+        # Client-side routing: without this rewrite a direct navigation to
+        # /tickets returns 404, because no such file exists in the bundle.
+        # Routes are a separate resource, not part of the create payload.
+        routes = [{"type": "rewrite", "source": "/*", "destination": "/index.html"}]
+        resp = client.put(f"/services/{web['id']}/routes", json=routes)
+        if resp.status_code >= 400:
+            raise ProvisionError(
+                f"Could not set the SPA rewrite on {WEB_SERVICE} "
+                f"(HTTP {resp.status_code}): {resp.text[:300]}. Without it, "
+                "reloading /tickets on the deployed site returns 404."
+            )
+        print("  SPA rewrite configured (/* -> /index.html)")
 
         web_url = web.get("serviceDetails", {}).get("url") or (
             f"https://{WEB_SERVICE}.onrender.com"

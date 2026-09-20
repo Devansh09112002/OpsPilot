@@ -182,9 +182,20 @@ test.describe("Investigation, approval and ticket", () => {
 
 test.describe("Tickets", () => {
   test("starts empty for a new visitor and explains how to create one", async ({ page }) => {
-    await page.goto("/tickets");
+    // A direct navigation, not a client-side link: on a static host this only
+    // works if the SPA rewrite is configured, so this doubles as a deploy check.
+    const response = await page.goto("/tickets");
+    expect(response?.status()).toBeLessThan(400);
     await expect(page.getByRole("heading", { name: "Your tickets" })).toBeVisible();
     await expect(page.locator("text=/Simulation/i").first()).toBeVisible();
+  });
+
+  test("a deep link survives a reload", async ({ page }) => {
+    await page.goto("/tickets");
+    await expect(page.getByRole("heading", { name: "Your tickets" })).toBeVisible();
+    const response = await page.reload();
+    expect(response?.status()).toBeLessThan(400);
+    await expect(page.getByRole("heading", { name: "Your tickets" })).toBeVisible();
   });
 });
 
