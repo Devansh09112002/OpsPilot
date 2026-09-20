@@ -240,7 +240,6 @@ export interface SituationMember {
   order_id: string;
   risk_probability: number;
   risk_band: RiskBand;
-  days_in_transit: number | null;
   product_category: string | null;
   days_to_deadline: number;
   escalatable: boolean;

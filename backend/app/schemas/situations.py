@@ -13,7 +13,6 @@ class SituationMemberOut(BaseModel):
     order_id: str
     risk_probability: float = Field(description="Calibrated probability of a late delivery.")
     risk_band: str
-    days_in_transit: float | None = None
     product_category: str | None = None
     days_to_deadline: float
     escalatable: bool = Field(

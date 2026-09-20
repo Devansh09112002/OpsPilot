@@ -193,6 +193,15 @@ path falls back to it automatically on any provider failure, and the report
 says which produced it. It also gives the agent benchmark a real floor: the
 model has to beat something, not beat nothing.
 
+**Why orders have no equivalent.** The asymmetry is deliberate. A lane brief
+exists because lanes are where the quota limit actually bites - 395 flagged
+orders against ~100 daily investigations. A single order page already degrades
+without the LLM: the as-of facts, the calibrated score, its risk factors and
+the policy determination are all still on screen, and the investigation panel
+says plainly that the provider is unavailable. Adding a second deterministic
+writer for the order path would duplicate the summarising logic to restate
+what that page already shows.
+
 ---
 
 ## 4. The agent

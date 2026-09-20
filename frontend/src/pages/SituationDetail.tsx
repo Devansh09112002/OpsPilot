@@ -146,6 +146,10 @@ export default function SituationDetail() {
             </span>
             <span className="stat__label">of this lane&rsquo;s volume</span>
           </div>
+          <div className="stat">
+            <span className="stat__value">{formatRisk(situation.max_risk)}</span>
+            <span className="stat__label">worst single order</span>
+          </div>
         </div>
 
         <h3 className="faint">Lane history</h3>

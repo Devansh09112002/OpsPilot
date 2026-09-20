@@ -52,7 +52,6 @@ class SituationMember:
     order_id: str
     risk_probability: float
     risk_band: str
-    days_in_transit: float | None
     product_category: str | None
     days_to_deadline: float
     escalatable: bool
@@ -104,7 +103,6 @@ class Situation:
                     "order_id": m.order_id,
                     "risk_probability": round(m.risk_probability, 4),
                     "risk_band": m.risk_band,
-                    "days_in_transit": m.days_in_transit,
                     "product_category": m.product_category,
                     "days_to_deadline": m.days_to_deadline,
                     "escalatable": m.escalatable,
@@ -244,7 +242,6 @@ def get_situation(db: Session, situation_id: str) -> Situation:
             SnapshotOrder.order_id,
             SnapshotOrder.risk_probability,
             SnapshotOrder.risk_band,
-            SnapshotOrder.days_in_transit,
             SnapshotOrder.model_version,
             OrderFeature.product_category,
             OrderFeature.order_estimated_delivery_date,
@@ -293,7 +290,6 @@ def get_situation(db: Session, situation_id: str) -> Situation:
             order_id=r.order_id,
             risk_probability=float(r.risk_probability),
             risk_band=r.risk_band,
-            days_in_transit=r.days_in_transit,
             product_category=r.product_category,
             days_to_deadline=days_to_deadline,
             escalatable=permitted,
