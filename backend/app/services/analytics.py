@@ -175,3 +175,65 @@ def category_context(db: Session, snapshot_id: str, order_id: str) -> ContextRes
         baseline_sample=base_n,
         caveats=caveats,
     )
+
+
+def lane_context(
+    db: Session, snapshot_id: str, seller_state: str, customer_state: str
+) -> ContextResult:
+    """As-of late rate for a whole lane, for situation investigations.
+
+    Same cutoff rule as `route_context`; no order is excluded, because the
+    subject here is the lane rather than one of its orders.
+
+    The caveat about weak persistence is not boilerplate. Measured on this
+    dataset, ranking lanes by their late rate before the cutoff correlates with
+    their rate after at Spearman rho = +0.286 - real, but far too weak to read
+    a lane's history as its forecast. A situation is ranked by current model
+    output; this number is background only.
+    """
+    snap = db.get(Snapshot, snapshot_id)
+    if snap is None:
+        return ContextResult(
+            available=False,
+            label="lane comparison",
+            sample_size=0,
+            caveats=["Snapshot not found."],
+        )
+
+    lane = f"{seller_state} to {customer_state}"
+    n, rate = _count_and_late(
+        db, snap.snapshot_at,
+        OrderFeature.seller_state == seller_state,
+        OrderFeature.customer_state == customer_state,
+    )
+    base_n, base_rate = _count_and_late(db, snap.snapshot_at)
+    caveats = [
+        f"Computed only from orders delivered before {snap.snapshot_at:%Y-%m-%d}; "
+        "later outcomes are not visible at this snapshot.",
+        "A lane's past late rate is only weakly predictive of its future rate "
+        "on this dataset (rank correlation +0.29). Treat it as background, not "
+        "as a forecast.",
+    ]
+    if n < MIN_SAMPLE:
+        return ContextResult(
+            available=False,
+            label=f"late rate on lane {lane}",
+            sample_size=n,
+            baseline_rate=base_rate,
+            baseline_sample=base_n,
+            caveats=[
+                f"Only {n} orders on this lane had been delivered by the snapshot "
+                f"date, below the {MIN_SAMPLE}-order minimum, so no lane rate is "
+                "reported.",
+                *caveats,
+            ],
+        )
+    return ContextResult(
+        available=True,
+        label=f"late rate on lane {lane}",
+        sample_size=n,
+        late_rate=rate,
+        baseline_rate=base_rate,
+        baseline_sample=base_n,
+        caveats=caveats,
+    )
