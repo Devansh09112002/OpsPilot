@@ -57,6 +57,14 @@ PLACEHOLDER_SHAPES = [
 
 SKIP_PATHS = (".lock", "package-lock.json", "uv.lock", "poetry.lock")
 
+# This scanner's own test file exists to hold realistic-looking fakes proving
+# detection works, so scanning it would always report them. Every other file is
+# scanned; a one-off legitimate match elsewhere uses the inline marker below.
+SKIP_FILES = ("backend/tests/test_secret_scan.py",)
+
+# An explicit, greppable opt-out for a single line.
+ALLOW_MARKER = "pragma: allowlist-secret"
+
 
 def is_placeholder_password(password: str) -> bool:
     if password.lower() in PLACEHOLDER_PASSWORDS:
@@ -98,7 +106,9 @@ def _tracked_files() -> list[str]:
     ).stdout
     return [
         f for f in out.splitlines()
-        if f and not any(f.endswith(s) or s in f for s in SKIP_PATHS)
+        if f
+        and not any(f.endswith(s) or s in f for s in SKIP_PATHS)
+        and f.replace("\\", "/") not in SKIP_FILES
     ]
 
 
@@ -113,6 +123,8 @@ def scan() -> list[Finding]:
 
         for i, line in enumerate(lines, 1):
             if len(line) > 4000:  # minified or generated
+                continue
+            if ALLOW_MARKER in line:
                 continue
             for label, pattern in API_KEY_PATTERNS:
                 if pattern.search(line):

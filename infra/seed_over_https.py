@@ -35,9 +35,10 @@ from data_pipeline import spec  # noqa: E402
 from data_pipeline.features import MODEL_FEATURES  # noqa: E402
 from infra.provision import ProvisionError, read_env  # noqa: E402
 
-# Rows per statement. Large enough to keep the request count sane, small enough
-# that one statement stays well inside the API's payload limit.
-CHUNK = 400
+# Rows per statement. Large enough to keep the request count sane (~200 for
+# the whole seed), small enough that one statement stays well inside the API's
+# payload limit.
+CHUNK = 1000
 
 
 def _client(env: dict[str, str]) -> tuple[httpx.Client, str]:
@@ -138,18 +139,28 @@ def _alembic_head() -> str:
 # ---------------------------------------------------------------------------
 
 def _sql_literal(value: Any) -> str:
-    if value is None or (isinstance(value, float) and pd.isna(value)):
+    """Render one Python value as a SQL literal.
+
+    The null check comes first and covers every missing-value type pandas
+    produces. `pd.NaT` is NOT a `Timestamp` instance, so a type-first branch
+    lets it reach the string fallback and emit the literal text 'NaT', which
+    PostgreSQL rejects as an invalid timestamp.
+    """
+    if value is None:
         return "NULL"
+    if isinstance(value, dict):
+        return "'" + json.dumps(value).replace("'", "''") + "'::jsonb"
+    try:
+        if pd.isna(value):
+            return "NULL"
+    except (TypeError, ValueError):
+        pass  # arrays and other non-scalars are not null-checkable
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (int, float)):
         return repr(value)
     if isinstance(value, pd.Timestamp):
-        if pd.isna(value):
-            return "NULL"
         return "'" + value.isoformat(sep=" ") + "'"
-    if isinstance(value, dict):
-        return "'" + json.dumps(value).replace("'", "''") + "'::jsonb"
     return "'" + str(value).replace("'", "''") + "'"
 
 
