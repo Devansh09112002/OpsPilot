@@ -51,9 +51,10 @@ output inspected.
   approve path (5.5 s) and the reject path (6.7 s). The twelfth is correctly
   skipped: it asserts the no-LLM failure path, which does not apply when a key
   is configured.
-- **Agent benchmark: 68/69, held-out 36/36 (100%)** against an 85% target.
-  The one miss is `flt-006` (development, sparse history): the model recorded
-  no limitation where the case requires one. Left as a miss.
+- **Agent benchmark: 68/69, held-out 35/36 (97.2%)** against an 85% target.
+  Claim support, policy citations, approval compliance, outcome containment
+  and membership grounding all 100%. The miss is a held-out case whose
+  provider call did not return. Reported as measured, not skipped.
   Claim support, policy citation validity, approval compliance and outcome
   containment all 100%. Latency median 2.8 s, p95 5.0 s; median
   3,576 input / 527 output tokens per investigation.
@@ -88,6 +89,44 @@ Flagged orders grouped by lane, investigable and escalatable as one unit. The
 - **ESC-05 composes ESC-01** rather than defining a second risk threshold.
 - Verification moved to `agent/verification.py`, shared by both graphs, and
   gained a membership rule.
+
+## Engineering quality pass
+
+A mutation audit: break a claim the project makes, run the suite, see whether
+it notices. Twenty-four mutations across two rounds. **Seven survived**, which
+means those properties were asserted in prose and nowhere else. All are now
+covered, and each test names the mutation it has to fail.
+
+- **The as-of cutoff.** Relaxing `<` to `<=` broke nothing. That rule is what
+  stops a delivery an operator could not yet have seen entering historical
+  context, and the architecture calls it "the whole rule". Now tested at the
+  instant itself, one second either side.
+- **Point-in-time features.** `merge_asof(allow_exact_matches=False)` could be
+  flipped silently: the pipeline still runs, the model still trains, and the
+  feature is leaking.
+- **Tool error sanitisation, the ESC-05 minimum, the calendar-date target
+  rule, the HttpOnly cookie, and the proposal gate** - the last tested
+  independently of the verification layer that normally masks it.
+
+Found while doing it, outside the tests:
+
+- **`expected_late` overstated reality by 1.5x.** Measured against the
+  held-out snapshots: 93.3 predicted, 62 actually late. The calibrator is fit
+  on validation at a 10.8% late rate and applied to a test period at 3.0%.
+  Not "fixed" by refitting - that would be selection on test - but measured
+  (`evaluation/snapshot_calibration.py`), published, and the product wording
+  corrected everywhere it appeared.
+- **Seven endpoints returned 500 on a percent-encoded NUL byte**, reachable
+  by any anonymous visitor. 318 hostile probes now produce no 5xx.
+- **`cookie_secure` was not derived from the environment**, so the deployed
+  cookie was secure only because two variables happened to be set. Forgetting
+  `SameSite=None` silently breaks every cross-origin session.
+- **Request ids went nowhere**: never attached to `request.state`, so routes
+  logged `request_id=None`, and absent from error responses, so a reported
+  failure could not be traced.
+- **The suite was order-coupled** by the shared free-tier cap.
+
+---
 
 ## Bugs found by tests and fixed
 

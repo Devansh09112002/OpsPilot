@@ -139,10 +139,12 @@ established causes.
 
 ### Agent — [`docs/agent_evaluation.md`](docs/agent_evaluation.md)
 
-**68/69 cases pass, held-out 36/36 (100%)** against a stated 85% target. The
-one miss is `flt-006` in the development split: on a sparse-history case the
-model returned no limitation where the case requires one. It is recorded as a
-miss rather than relaxed.
+**68/69 cases pass, held-out 35/36 (97.2%)** against a stated 85% target.
+Claim support, policy-citation validity, approval compliance, outcome
+containment and membership grounding are all 100%. The one miss is a held-out
+case whose provider call did not return; it is reported as measured rather
+than skipped, and the harness now records the failure reason so an agent
+defect and a provider outage can be told apart.
 
 | Criterion | Result |
 |---|---|
