@@ -90,7 +90,7 @@ curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API
 
    Final form:
    ```
-   postgresql+psycopg://postgres.abcdefghijklm:THEPASSWORD@aws-0-us-west-1.pooler.supabase.com:6543/postgres
+   postgresql+psycopg://postgres.abcdefghijklm:<YOUR-PASSWORD>@aws-0-us-west-1.pooler.supabase.com:6543/postgres
    ```
 
 > **Use the session pooler (6543), not the direct connection (5432).** A free

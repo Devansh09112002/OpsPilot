@@ -197,35 +197,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fail on a committed secret
-        run: |
-          set -uo pipefail
-          echo "Scanning tracked files for credential patterns..."
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-          # Provider API keys. The .env.example placeholders are empty, so any
-          # match here means a real key was committed.
-          if git grep -InE \
-              -e 'AIza[0-9A-Za-z_-]{30,}' \
-              -e 'sk-ant-[0-9A-Za-z_-]{20,}' \
-              -e 'sk-[0-9A-Za-z]{40,}' \
-              -e 'gh[pousr]_[0-9A-Za-z]{30,}' \
-              -- . ':!*.lock' ':!package-lock.json'; then
-            echo "::error::An API key is present in the repository."
-            exit 1
-          fi
-
-          # Database URLs pointing at a REMOTE host. The local development
-          # credential (opspilot_dev_pw on 127.0.0.1 / localhost / the compose
-          # service name) is documented setup, not a secret, so it is allowed;
-          # a DSN for anything else is treated as a leak.
-          if git grep -InE 'postgres(ql)?(\+psycopg)?://[^:@[:space:]]+:[^@[:space:]]+@' \
-                 -- . ':!*.lock' ':!package-lock.json' \
-             | grep -vE '@(127\.0\.0\.1|localhost|db|postgres):' ; then
-            echo "::error::A remote database URL with credentials is committed."
-            exit 1
-          fi
-
-          echo "No committed credentials found."
+      - name: Fail on a committed credential
+        run: python -m infra.scan_secrets
 
       - name: Ensure .env is not tracked
         run: |

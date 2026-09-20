@@ -46,8 +46,8 @@ output inspected.
 - Single-row inference: median 11 ms.
 
 ### Backend and agent
-- 115 backend tests pass; ruff clean.
-- **11 E2E browser journeys pass against real Gemini**, including the full
+- 117 backend tests pass; ruff clean.
+- **12 E2E browser journeys pass against real Gemini**, including the full
   approve path (5.5 s) and the reject path (6.7 s). The twelfth is correctly
   skipped: it asserts the no-LLM failure path, which does not apply when a key
   is configured.
@@ -100,6 +100,33 @@ Worth recording because each would have shipped silently:
 10. Gemini's free tier caps requests **per model per day** (measured: 20). The
     original caps were nine times over it, and the retry for a rejected
     thinking budget was silently doubling consumption.
+
+### Found by reviewing the deployment path before deploying
+
+Each of these produces a **green build and a broken production**, which is the
+worst failure mode to discover live:
+
+11. `artifacts/` was gitignored, but a Render build context is the git repo and
+    the Dockerfile copies it. The image would have built cleanly and served no
+    predictions at all: empty queue, no investigations, nothing. The artifact
+    is 908 KB and is now tracked, with a CI guard asserting both that it is in
+    the build context and that the Dockerfile still copies it.
+12. psycopg3 prepares statements by default. Supabase fronts free databases
+    with PgBouncer in transaction mode, which hands the next transaction to a
+    different backend, so queries fail intermittently with "prepared statement
+    does not exist" once traffic picks up. A pooled DSN now disables
+    preparation, keeps the pool small and recycles under the idle timeout.
+13. The same rule was missing from Alembic, which builds its own engine. A
+    migration failing halfway is worse than a query failing, because it can
+    leave the schema partly applied.
+14. The SPA rewrite was in the create-service payload, but Render routes are a
+    separate resource. Without it a direct navigation to `/tickets` returns 404
+    on a static host, breaking every shared link and every reload. Now set with
+    `PUT /services/{id}/routes` and covered by two E2E tests that assert the
+    HTTP status, not merely that React eventually rendered.
+15. Render's create-service API takes `serviceDetails.runtime`, not
+    `serviceDetails.env`. Caught by checking the published reference rather
+    than trusting recall; it would have failed the first provisioning attempt.
 
 ---
 

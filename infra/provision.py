@@ -140,10 +140,19 @@ def provision_supabase(env: dict[str, str]) -> dict[str, str]:
         orgs.raise_for_status()
         org_list = orgs.json()
         if not org_list:
-            raise ProvisionError(
-                "The Supabase account has no organization. Create one in the "
-                "dashboard, then re-run."
-            )
+            # A fresh account can have no organization at all. Creating one is
+            # a free, API-supported action, so there is no reason to send the
+            # owner to the dashboard for it.
+            print("  no organization found; creating one")
+            created_org = client.post("/organizations", json={"name": "OpsPilot"})
+            if created_org.status_code >= 400:
+                raise ProvisionError(
+                    "The Supabase account has no organization and one could not "
+                    f"be created (HTTP {created_org.status_code}): "
+                    f"{created_org.text[:200]}. Create one at "
+                    "https://supabase.com/dashboard and re-run."
+                )
+            org_list = [created_org.json()]
         org_id = org_list[0]["id"]
         print(f"  organization: {org_list[0].get('name', org_id)}")
 
