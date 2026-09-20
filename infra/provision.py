@@ -66,7 +66,8 @@ def read_env() -> dict[str, str]:
             key, _, value = line.partition("=")
             values[key.strip()] = value.strip()
     # Real environment wins, so CI and one-off overrides work.
-    for key in list(values) + [
+    for key in [
+        *values,
         "SUPABASE_ACCESS_TOKEN", "RENDER_API_KEY", "GEMINI_API_KEY",
         "DATABASE_URL", "SUPABASE_DB_PASSWORD",
     ]:
@@ -316,15 +317,19 @@ def provision_render(env: dict[str, str]) -> dict[str, str]:
         "LOG_LEVEL": "INFO",
         "DATABASE_URL": dsn,
         "GEMINI_API_KEY": gemini,
-        "LLM_MODEL": env.get("LLM_MODEL", "gemini-3.5-flash"),
+        "LLM_MODEL": env.get("LLM_MODEL", "gemini-3.5-flash-lite"),
+        "LLM_MODEL_FALLBACKS": env.get(
+            "LLM_MODEL_FALLBACKS",
+            "gemini-3.5-flash,gemini-3.6-flash,gemini-3-flash-preview,"
+            "gemini-3.1-flash-lite"),
         "LLM_THINKING_BUDGET": "0",
         "LLM_TIMEOUT_SECONDS": "45",
         "COOKIE_SECURE": "true",
         "COOKIE_SAMESITE": "none",
         "SESSION_TTL_HOURS": "72",
-        "INVESTIGATIONS_PER_SESSION_PER_DAY": "10",
-        "INVESTIGATIONS_GLOBAL_PER_HOUR": "60",
-        "INVESTIGATIONS_GLOBAL_PER_DAY": "180",
+        "INVESTIGATIONS_PER_SESSION_PER_DAY": "5",
+        "INVESTIGATIONS_GLOBAL_PER_HOUR": "25",
+        "INVESTIGATIONS_GLOBAL_PER_DAY": "80",
         "API_REQUESTS_PER_MINUTE": "120",
         # Provisional; corrected once the static site URL is known.
         "CORS_ORIGINS": "https://opspilot-web.onrender.com",

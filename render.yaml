@@ -33,7 +33,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: LLM_MODEL
-        value: gemini-3.5-flash
+        value: gemini-3.5-flash-lite
       - key: LLM_THINKING_BUDGET
         value: "0"
       - key: LLM_TIMEOUT_SECONDS
@@ -56,11 +56,11 @@ services:
 
       # Free-tier guards.
       - key: INVESTIGATIONS_PER_SESSION_PER_DAY
-        value: "10"
+        value: "5"
       - key: INVESTIGATIONS_GLOBAL_PER_HOUR
-        value: "60"
+        value: "25"
       - key: INVESTIGATIONS_GLOBAL_PER_DAY
-        value: "180"
+        value: "80"
       - key: API_REQUESTS_PER_MINUTE
         value: "120"
 

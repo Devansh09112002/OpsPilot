@@ -156,13 +156,15 @@ def _client_error(status: int) -> genai_errors.ClientError:
 
 
 def test_rate_limit_produces_an_actionable_message(with_key, monkeypatch):
+    monkeypatch.setattr(with_key, "llm_model_fallbacks", "", raising=False)
+
     def boom(*a, **k):
         raise _client_error(429)
     monkeypatch.setattr(llm_module.genai.Client, "__init__", lambda self, **kw: None)
     monkeypatch.setattr(llm_module, "get_client",
                         lambda: SimpleNamespace(models=SimpleNamespace(generate_content=boom)))
 
-    with pytest.raises(LLMUnavailableError, match="free-tier rate limit"):
+    with pytest.raises(LLMUnavailableError, match="free-tier quota"):
         generate_report("sys", "user")
 
 
@@ -179,6 +181,7 @@ def test_bad_credentials_do_not_echo_the_key(with_key, monkeypatch):
 
 
 def test_server_error_is_transient_and_actionable(with_key, monkeypatch):
+    monkeypatch.setattr(with_key, "llm_model_fallbacks", "", raising=False)
     exc = genai_errors.ServerError.__new__(genai_errors.ServerError)
     Exception.__init__(exc, "503")
 
@@ -237,3 +240,115 @@ def test_report_schema_is_accepted_by_the_gemini_schema_converter():
     assert schema is not None
     names = set(schema.properties or {})
     assert {"summary", "facts", "recommendation"} <= names
+
+
+# ---------------------------------------------------------------------------
+# Free-tier model fallback
+# ---------------------------------------------------------------------------
+
+def _quota_error() -> genai_errors.ClientError:
+    exc = genai_errors.ClientError.__new__(genai_errors.ClientError)
+    Exception.__init__(exc, "429 RESOURCE_EXHAUSTED")
+    exc.code = 429
+    return exc
+
+
+def _bad_request() -> genai_errors.ClientError:
+    exc = genai_errors.ClientError.__new__(genai_errors.ClientError)
+    Exception.__init__(exc, "400 INVALID_ARGUMENT")
+    exc.code = 400
+    return exc
+
+
+def test_chain_puts_the_primary_model_first(with_key, monkeypatch):
+    monkeypatch.setattr(with_key, "llm_model", "model-a", raising=False)
+    monkeypatch.setattr(with_key, "llm_model_fallbacks", "model-b, model-c",
+                        raising=False)
+    assert with_key.llm_model_chain == ["model-a", "model-b", "model-c"]
+
+
+def test_chain_drops_a_duplicated_fallback(with_key, monkeypatch):
+    monkeypatch.setattr(with_key, "llm_model", "model-a", raising=False)
+    monkeypatch.setattr(with_key, "llm_model_fallbacks", "model-a,model-b",
+                        raising=False)
+    assert with_key.llm_model_chain == ["model-a", "model-b"]
+
+
+def test_exhausted_model_falls_through_to_the_next(with_key, monkeypatch):
+    """A per-model daily quota must not take the whole demo down."""
+    monkeypatch.setattr(with_key, "llm_model", "exhausted-model", raising=False)
+    monkeypatch.setattr(with_key, "llm_model_fallbacks", "working-model",
+                        raising=False)
+    tried: list[str] = []
+
+    def generate_content(*, model, contents, config):
+        tried.append(model)
+        if model == "exhausted-model":
+            raise _quota_error()
+        return _response(parsed=InvestigationReport.model_validate(VALID))
+
+    monkeypatch.setattr(
+        llm_module, "get_client",
+        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=generate_content)),
+    )
+    result = generate_report("sys", "user")
+    assert tried == ["exhausted-model", "working-model"]
+    # Which model actually answered is recorded, not hidden.
+    assert result.model == "working-model"
+
+
+def test_whole_chain_exhausted_fails_honestly(with_key, monkeypatch):
+    monkeypatch.setattr(with_key, "llm_model", "a", raising=False)
+    monkeypatch.setattr(with_key, "llm_model_fallbacks", "b,c", raising=False)
+
+    def always_exhausted(*, model, contents, config):
+        raise _quota_error()
+
+    monkeypatch.setattr(
+        llm_module, "get_client",
+        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=always_exhausted)),
+    )
+    with pytest.raises(LLMUnavailableError, match="exhausted its free-tier quota"):
+        generate_report("sys", "user")
+
+
+def test_model_rejecting_thinking_budget_is_retried_without_it(with_key, monkeypatch):
+    """gemini-3.5-flash-lite 400s on a thinking budget but works without one."""
+    monkeypatch.setattr(with_key, "llm_model", "picky-model", raising=False)
+    monkeypatch.setattr(with_key, "llm_model_fallbacks", "", raising=False)
+    monkeypatch.setattr(with_key, "llm_thinking_budget", 0, raising=False)
+    attempts: list[bool] = []
+
+    def generate_content(*, model, contents, config):
+        has_thinking = config.thinking_config is not None
+        attempts.append(has_thinking)
+        if has_thinking:
+            raise _bad_request()
+        return _response(parsed=InvestigationReport.model_validate(VALID))
+
+    monkeypatch.setattr(
+        llm_module, "get_client",
+        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=generate_content)),
+    )
+    result = generate_report("sys", "user")
+    assert attempts == [True, False], "should retry exactly once, without thinking"
+    assert result.model == "picky-model"
+
+
+def test_credentials_failure_does_not_walk_the_chain(with_key, monkeypatch):
+    """A bad key fails every model, so retrying them wastes time and quota."""
+    monkeypatch.setattr(with_key, "llm_model", "a", raising=False)
+    monkeypatch.setattr(with_key, "llm_model_fallbacks", "b,c", raising=False)
+    tried: list[str] = []
+
+    def rejected(*, model, contents, config):
+        tried.append(model)
+        raise _client_error(403)
+
+    monkeypatch.setattr(
+        llm_module, "get_client",
+        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=rejected)),
+    )
+    with pytest.raises(LLMUnavailableError, match="credentials"):
+        generate_report("sys", "user")
+    assert tried == ["a"], "a credentials failure must not retry other models"

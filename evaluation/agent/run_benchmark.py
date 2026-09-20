@@ -298,13 +298,13 @@ def score(case: Case, state, result: CaseResult) -> CaseResult:
             result.approval_compliant = False
             result.notes.append("recommended escalation the policy does not permit")
 
-    if case.expect_recommendation_in and result.recommendation is not None:
-        if result.recommendation not in case.expect_recommendation_in:
-            result.task_completed = False
-            result.notes.append(
-                f"recommendation {result.recommendation} not in "
-                f"{case.expect_recommendation_in}"
-            )
+    if (case.expect_recommendation_in and result.recommendation is not None
+            and result.recommendation not in case.expect_recommendation_in):
+        result.task_completed = False
+        result.notes.append(
+            f"recommendation {result.recommendation} not in "
+            f"{case.expect_recommendation_in}"
+        )
 
     if case.expect_proposal is not None:
         expected = case.expect_proposal
@@ -349,6 +349,17 @@ def run_case(db: Session, case: Case, *, llm_available: bool) -> CaseResult:
                 state = graph_module.run_investigation(
                     db, case.order_id, case.snapshot_id
                 )
+        # Quota exhaustion is an infrastructure limit, not an agent defect.
+        # Such a case is SKIPPED and excluded from every rate, exactly as a
+        # case with no key configured would be. Counting it as a failure would
+        # make the benchmark measure the free tier rather than the agent.
+        error = (state.error_message or "").lower()
+        if stub is None and state.status == "failed" and (
+            "quota" in error or "rate limit" in error
+        ):
+            result.skipped_reason = "provider free-tier quota exhausted"
+            return result
+
         result.ran = True
         result.duration_ms = int((time.perf_counter() - started) * 1000)
         result.input_tokens = state.llm_input_tokens

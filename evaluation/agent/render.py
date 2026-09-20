@@ -76,7 +76,8 @@ def render(p: dict) -> str:
     skip_note = (
         f"\n\n**{len(skipped)} case(s) were skipped** and are excluded from every "
         "rate above: " + ", ".join(sorted({c["skipped_reason"] or "unknown" for c in skipped}))
-        + ". A skipped case is never counted as a pass."
+        + ". A skipped case is never counted as a pass, and never as a failure "
+        "either: a provider quota limit measures the free tier, not the agent."
     ) if skipped else ""
 
     d = overall.get("duration_ms", {})
