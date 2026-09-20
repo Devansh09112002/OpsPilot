@@ -285,3 +285,26 @@ The database is separate from the deploy, so a rollback never loses tickets.
   contains no key material, and CI fails on a committed credential.
 - To rotate the Gemini key: create a new one in AI Studio, update it on the
   Render service, delete the old one.
+
+## Running the E2E suite
+
+The suite makes far more requests than a person would. The API caps requests
+per client IP at `API_REQUESTS_PER_MINUTE` (120 by default, which is the right
+setting for the public deployment), and twenty-one tests back to back from one
+address exceed it — at which point the suite is measuring the limiter rather
+than the product.
+
+Start the local API with a raised cap when running the whole suite:
+
+```bash
+API_REQUESTS_PER_MINUTE=2000 uvicorn app.main:app --app-dir backend --port 8000
+```
+
+CI does the same. **Do not raise it on the deployed service.** When verifying
+the deployed site, run the two spec files separately instead:
+
+```bash
+BASE_URL=https://opspilot-web-hj6k.onrender.com API_BASE_URL=https://opspilot-api-pg66.onrender.com   npx playwright test e2e/journey.spec.ts
+# then, after a pause
+  npx playwright test e2e/situations.spec.ts
+```
