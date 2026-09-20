@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.middleware.gzip import GZipMiddleware
 
 from app.api.v1.routes import router as v1_router
@@ -70,6 +71,37 @@ app.add_middleware(
     allow_headers=["Content-Type", "Accept"],
     max_age=600,
 )
+
+
+@app.middleware("http")
+async def reject_control_characters(request: Request, call_next):
+    """Refuse URLs carrying C0 control characters, NUL above all.
+
+    A percent-encoded NUL reaches the application as a perfectly ordinary
+    string, is bound into a query, and PostgreSQL then refuses it:
+    "text fields cannot contain NUL (0x00) bytes". That surfaced as a 500 on
+    seven endpoints, reachable by any anonymous visitor with a URL.
+
+    Sanitising each query would mean remembering to do it in every new one.
+    Rejecting at the edge is one rule in one place, and no control character
+    is meaningful in an order id, a state code or a search prefix.
+    """
+    # `request.url.query` is still percent-encoded, so a `%00` there reads as
+    # three harmless characters. The decoded values are what reach the
+    # database, so those are what get checked.
+    candidates = [request.url.path, *request.query_params.keys(), *request.query_params.values()]
+    if any(ord(ch) < 0x20 for value in candidates for ch in value):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "code": "bad_request",
+                    "message": "The request URL contains control characters.",
+                    "detail": {},
+                }
+            },
+        )
+    return await call_next(request)
 
 
 @app.middleware("http")

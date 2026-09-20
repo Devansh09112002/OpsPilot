@@ -264,3 +264,92 @@ def test_direct_dsn_keeps_normal_pooling():
     assert not _is_pooled(direct)
     kwargs = _engine_kwargs(direct)
     assert "connect_args" not in kwargs
+
+
+# ---------------------------------------------------------------------------
+# Hostile input
+#
+# A percent-encoded NUL reaches the application as an ordinary string, is
+# bound into a query, and PostgreSQL refuses it: "text fields cannot contain
+# NUL (0x00) bytes". That produced a 500 on seven endpoints, reachable by any
+# anonymous visitor with a URL.
+# ---------------------------------------------------------------------------
+
+HOSTILE_VALUES = [
+    "", "-1", "0", "99999999", "1e308", "NaN", "' OR 1=1--", "<script>",
+    "../../etc/passwd", "%00", "%01", "ab%00cd", "a" * 300, "\U0001F642",
+    "2018-13-45", "%", "_", "\\", "2018-08-15' --",
+]
+
+HOSTILE_PATHS = [
+    "/api/v1/orders?snapshot_id={v}",
+    "/api/v1/orders?snapshot_id=2018-08-15&limit={v}",
+    "/api/v1/orders?snapshot_id=2018-08-15&offset={v}",
+    "/api/v1/orders?snapshot_id=2018-08-15&risk_band={v}",
+    "/api/v1/orders?snapshot_id=2018-08-15&sort={v}",
+    "/api/v1/orders?snapshot_id=2018-08-15&customer_state={v}",
+    "/api/v1/orders?snapshot_id=2018-08-15&search={v}",
+    "/api/v1/orders/{v}?snapshot_id=2018-08-15",
+    "/api/v1/snapshots/{v}/stats",
+    "/api/v1/snapshots/{v}/situations",
+    "/api/v1/snapshots/2018-08-15/situations?limit={v}",
+    "/api/v1/snapshots/2018-08-15/situations?min_orders={v}",
+    "/api/v1/situations/{v}",
+    "/api/v1/investigations/{v}",
+    "/api/v1/tickets/{v}",
+    "/api/v1/audit?limit={v}",
+]
+
+
+def test_no_hostile_value_produces_a_server_error(client):
+    """Every rejection must be a deliberate 4xx, never an unhandled 5xx."""
+    failures = []
+    for template in HOSTILE_PATHS:
+        for value in HOSTILE_VALUES:
+            url = template.replace("{v}", value)
+            response = client.get(url)
+            if response.status_code >= 500:
+                failures.append(f"{response.status_code} {url[:90]}")
+    assert not failures, "unhandled server errors:\n" + "\n".join(failures[:10])
+
+
+@pytest.mark.parametrize("url", [
+    "/api/v1/orders/%00?snapshot_id=2018-08-15",
+    "/api/v1/snapshots/%00/stats",
+    "/api/v1/tickets/%00",
+    "/api/v1/orders?snapshot_id=2018-08-15&customer_state=%00",
+    "/api/v1/orders?snapshot_id=2018-08-15&search=ab%00cd",
+    "/api/v1/orders?snapshot_id=2018-08-15&search=%01",
+])
+def test_control_characters_are_refused_at_the_edge(client, url):
+    response = client.get(url)
+    assert response.status_code == 400, f"{url} returned {response.status_code}"
+    assert response.json()["error"]["code"] == "bad_request"
+
+
+def test_the_guard_does_not_reject_legitimate_requests(client):
+    """Unicode, punctuation and ordinary ids must still pass."""
+    for url in (
+        "/api/v1/snapshots",
+        "/api/v1/orders?snapshot_id=2018-08-15&limit=5",
+        "/api/v1/orders?snapshot_id=2018-08-15&customer_state=SP",
+        "/api/v1/orders?snapshot_id=2018-08-15&search=00",
+        "/api/v1/snapshots/2018-08-15/situations?limit=3",
+    ):
+        assert client.get(url).status_code < 400, url
+
+
+def test_malformed_post_bodies_are_rejected_without_a_server_error(client):
+    bodies = [
+        ("/api/v1/predictions", {"order_id": "x", "snapshot_id": "y"}),
+        ("/api/v1/predictions", {"features": {"a": 1}}),
+        ("/api/v1/predictions", {}),
+        ("/api/v1/predictions", {"features": None}),
+        ("/api/v1/investigations", {}),
+        ("/api/v1/investigations", {"order_id": None, "snapshot_id": None}),
+        ("/api/v1/investigations", {"order_id": "'--", "snapshot_id": "2018-08-15"}),
+        ("/api/v1/investigations", {"order_id": "a" * 500, "snapshot_id": "2018-08-15"}),
+    ]
+    for url, body in bodies:
+        response = client.post(url, json=body)
+        assert response.status_code < 500, f"{url} {body} -> {response.status_code}"
