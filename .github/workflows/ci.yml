@@ -234,3 +234,22 @@ jobs:
             exit 1
           fi
           echo ".env is not tracked."
+
+      - name: Ensure the deploy would actually ship a model
+        run: |
+          set -euo pipefail
+          # A Render build context is the git repo. If the artifact is not
+          # tracked, the image builds fine and then serves no predictions at
+          # all - a silent, total product failure that only shows up in
+          # production. Assert it is present in the build context.
+          for f in artifacts/delivery_risk_model.joblib                    artifacts/delivery_risk_model.meta.json; do
+            if ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              echo "::error::$f is not tracked, so the deployed image would have no model."
+              exit 1
+            fi
+          done
+          echo "Model artifact is in the build context."
+
+          # The Dockerfile must actually copy it.
+          grep -q 'COPY artifacts/' backend/Dockerfile             || { echo "::error::backend/Dockerfile no longer copies artifacts/."; exit 1; }
+          echo "Dockerfile copies the artifact."

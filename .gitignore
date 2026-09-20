@@ -30,9 +30,15 @@ data/raw/*
 data/interim/
 data/processed/
 
-# ML artifacts (regenerate via ml_pipeline; see README)
+# ML artifacts. The served model IS committed: it is under 1 MB, the Docker
+# image copies it at build time, and a Render build context is the git repo -
+# so ignoring it would deploy an API with no model at all. Keeping it tracked
+# also means the exact artifact behind every published metric is auditable.
+# Regenerate with `python -m ml_pipeline.train`.
 artifacts/*
 !artifacts/.gitkeep
+!artifacts/delivery_risk_model.joblib
+!artifacts/delivery_risk_model.meta.json
 
 # Local postgres cluster
 .pgdata/
