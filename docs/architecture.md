@@ -102,6 +102,41 @@ and single-row scoring equals batch scoring.
 scan events. A prediction exists only at carrier handover, so the UI labels it
 "predicted at carrier handover" rather than implying a live re-forecast.
 
+### Two numbers, deliberately
+
+A prediction carries both a calibrated probability and the raw model output,
+and they do different jobs:
+
+| | `risk_probability` | `ranking_score` |
+|---|---|---|
+| What it is | Isotonic-calibrated estimate | Raw model output |
+| Fitted on | Validation split | Training split |
+| Used for | Display, risk bands, the policy threshold | Sorting the queue |
+
+The raw score is not a probability: `scale_pos_weight` rebalances the classes
+during training and inflates every output, so a raw 0.65 corresponded to a 2.4%
+observed late rate. Showing that to a person is misleading whatever the caption
+says.
+
+The queue nonetheless sorts on the raw score, because isotonic calibration is
+monotonic **non-decreasing** — it creates ties. Ordering by the tied calibrated
+values would quietly change the ranking that every published metric was
+measured on. Sorting on the raw score keeps the ordering identical to the
+evaluation while the reader sees a number that means something.
+
+### Explanations
+
+`ml_pipeline.model.explain` returns exact TreeSHAP contributions from
+XGBoost's `pred_contribs`, so there is no extra dependency, no sampling and
+negligible memory on a 512 MB container. Two details matter:
+
+- One-hot columns are summed back to their source feature, and the mapping is
+  read off the fitted encoder's own output names. Prefix matching would confuse
+  `customer_state` with `seller_state`, and counting `categories_` undercounts
+  because `handle_unknown="infrequent_if_exist"` adds a column.
+- A test asserts the contributions reconstruct the model's margin. TreeSHAP is
+  exact, so any drift means the attribution shown to a user is wrong.
+
 ---
 
 ## 4. The agent

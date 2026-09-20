@@ -57,6 +57,22 @@ Ranking one snapshot at a time, exactly as the deployed queue does:
 A reviewer working the flagged queue meets a late order ~2.8× as often as one
 reviewing 50 orders at random, against a 4.8% background rate.
 
+**The displayed score is calibrated.** The raw model output is not a
+probability — `scale_pos_weight` inflates it, so a raw 0.65 corresponded to a
+**2.4% observed late rate**, a 27× overstatement. An isotonic regression fitted
+on validation fixes that:
+
+| | Raw | Calibrated |
+|---|---|---|
+| Brier score (test) | 0.28485 | **0.02952** (9.6× better) |
+| Mean predicted | 0.4824 | **0.0886** |
+| Observed base rate | 0.0301 | 0.0301 |
+
+Isotonic is monotonic, so the ranking above is unchanged. The queue still sorts
+on the raw score — calibration creates ties, and ordering by tied values would
+silently change the ranking these metrics were measured on — while the
+calibrated estimate is what a person reads.
+
 Two things the report states plainly rather than hiding:
 
 - XGBoost was selected on **validation**, and logistic regression edged it out
@@ -76,6 +92,24 @@ Two things the report states plainly rather than hiding:
 - 329 orders where the carrier received the parcel *after* the promised date
   are excluded: those are late by arithmetic, not prediction, and leaving them
   in let the rule baseline score a meaningless Precision@50 of 1.000.
+
+### Explainability
+
+Every served prediction says which inputs moved it, using exact TreeSHAP via
+XGBoost's built-in `pred_contribs` — no extra dependency, negligible memory:
+
+```
+days between carrier handover and the promised date   ▲ increases risk  46%
+hours from purchase to carrier handover               ▲ increases risk  12%
+slack against the seller's shipping deadline          ▲ increases risk  10%
+week of year of carrier handover                      ▼ decreases risk   4%
+```
+
+One-hot columns are summed back to their source feature, and a test asserts the
+contributions reconstruct the model margin exactly — if they ever stop doing so,
+the attribution shown to a user is wrong and the build fails. Policy `EVI-03`
+requires them to be described as attributions of the model's output, never as
+established causes.
 
 ### Agent — [`docs/agent_evaluation.md`](docs/agent_evaluation.md)
 
@@ -155,7 +189,7 @@ open http://localhost:5173
 ### Tests
 
 ```bash
-pytest backend/tests                        # 114 backend tests
+pytest backend/tests                        # 148 backend tests
 cd frontend && npx playwright test          # browser journeys
 python -m evaluation.agent.run_benchmark    # agent benchmark
 ```
