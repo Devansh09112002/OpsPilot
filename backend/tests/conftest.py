@@ -23,6 +23,14 @@ os.environ["LLM_API_KEY"] = ""
 os.environ["GEMINI_API_KEY"] = ""
 os.environ["GOOGLE_API_KEY"] = ""
 os.environ.setdefault("ENVIRONMENT", "test")
+# The global investigation caps exist to keep the deployment inside the
+# provider's free tier, and they count every Investigation row in the window
+# regardless of session. Across a whole suite run that silently couples
+# unrelated tests: enough earlier tests run an investigation and a later one
+# gets a 429 it never asked about. The caps are raised here and exercised
+# deliberately in `test_global_investigation_cap_*` instead.
+os.environ.setdefault("INVESTIGATIONS_GLOBAL_PER_HOUR", "100000")
+os.environ.setdefault("INVESTIGATIONS_GLOBAL_PER_DAY", "100000")
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select

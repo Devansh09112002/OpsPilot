@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # --- guest sessions ---
     session_cookie_name: str = "opspilot_session"
     session_ttl_hours: int = 72
+    # Defaults are the *local* ones; production hardens them in
+    # `_harden_cookies_in_production` below rather than relying on two
+    # environment variables being remembered at deploy time.
     cookie_secure: bool = Field(default=False)
     cookie_samesite: str = Field(default="lax")
 
@@ -79,6 +82,27 @@ class Settings(BaseSettings):
     investigations_global_per_hour: int = 25
     investigations_global_per_day: int = 80
     api_requests_per_minute: int = 120
+
+    @model_validator(mode="after")
+    def _harden_cookies_in_production(self) -> Settings:
+        """Make the deployed cookie safe by default, not by configuration.
+
+        The frontend and API are served from different origins, so the session
+        cookie needs `Secure` and `SameSite=None`. Left to environment
+        variables, forgetting either one is silent: `Secure=False` downgrades
+        security, and `SameSite=lax` makes the browser drop the cookie on
+        every cross-origin request, so the whole app stops keeping a session
+        with no error anywhere.
+
+        An explicit setting still wins, so a self-hosted same-origin
+        deployment can opt out.
+        """
+        if self.environment == "production":
+            if "cookie_secure" not in self.model_fields_set:
+                object.__setattr__(self, "cookie_secure", True)
+            if "cookie_samesite" not in self.model_fields_set:
+                object.__setattr__(self, "cookie_samesite", "none")
+        return self
 
     @field_validator("cookie_samesite")
     @classmethod

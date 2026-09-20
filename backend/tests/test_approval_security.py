@@ -351,3 +351,75 @@ def test_request_rate_limit_returns_429(client, monkeypatch):
     codes = [client.get(f"{API}/snapshots").status_code for _ in range(6)]
     assert 429 in codes
     assert codes[:3] == [200, 200, 200]
+
+
+def _investigations_in_last_hour(db) -> int:
+    """Rows already inside the cap's window.
+
+    A test that assumed an empty window passed alone and failed in a full run,
+    which is the same coupling these tests were written to remove. The cap is
+    set relative to what is already there instead.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import func, select
+
+    from app.db.models import Investigation
+
+    since = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
+    return db.execute(
+        select(func.count(Investigation.investigation_id)).where(
+            Investigation.created_at >= since
+        )
+    ).scalar_one()
+
+
+def test_global_investigation_cap_returns_429_and_names_the_window(
+    client, db, seeded_order, stub_llm_ok, monkeypatch
+):
+    """The shared free-tier cap, tested on purpose rather than by accident.
+
+    Until this existed the global cap had no test of its own. It was only
+    ever reached as a side effect of a long suite run, which made unrelated
+    tests fail with a 429 they never asked about.
+    """
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(
+        settings, "investigations_global_per_hour",
+        _investigations_in_last_hour(db) + 1, raising=False,
+    )
+
+    order_id, snapshot_id = seeded_order
+    payload = {"order_id": order_id, "snapshot_id": snapshot_id}
+    assert client.post(f"{API}/investigations", json=payload).status_code == 200
+
+    refused = client.post(f"{API}/investigations", json=payload)
+    assert refused.status_code == 429
+    error = refused.json()["error"]
+    assert error["detail"]["limit_type"] == "global_hourly"
+    # The message must tell a visitor what still works.
+    assert "risk queue" in error["message"]
+
+
+def test_the_global_cap_is_shared_across_sessions(
+    client, second_client, db, seeded_order, stub_llm_ok, monkeypatch
+):
+    """A per-session cap would not protect the provider quota at all."""
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(
+        settings, "investigations_global_per_hour",
+        _investigations_in_last_hour(db) + 1, raising=False,
+    )
+
+    order_id, snapshot_id = seeded_order
+    payload = {"order_id": order_id, "snapshot_id": snapshot_id}
+    assert client.post(f"{API}/investigations", json=payload).status_code == 200
+
+    # A different visitor, with an untouched personal quota, is still refused.
+    refused = second_client.post(f"{API}/investigations", json=payload)
+    assert refused.status_code == 429
+    assert refused.json()["error"]["detail"]["limit_type"] == "global_hourly"
