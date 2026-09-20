@@ -485,3 +485,69 @@ def test_a_different_lane_can_still_be_escalated(client, db):
             f"/api/v1/proposals/{body['proposal']['proposal_id']}/approve"
         ).status_code == 200
     assert client.get("/api/v1/tickets").json()["total"] == 2
+
+
+# ---------------------------------------------------------------------------
+# ESC-05 boundary
+#
+# A mutation audit lowered MIN_ESCALATABLE_MEMBERS from 3 to 1 and the whole
+# suite still passed: the existing tests happened to use lanes with zero
+# qualifying members, so the threshold itself was never pinned.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("n_escalatable,permitted", [
+    (0, False),
+    (1, False),
+    (2, False),   # one below the minimum
+    (3, True),    # exactly the minimum
+    (4, True),
+])
+def test_esc_05_permits_escalation_exactly_at_its_minimum(n_escalatable, permitted):
+    allowed, reason = policies.situation_escalation_permitted(
+        n_escalatable=n_escalatable, n_flagged=50
+    )
+    assert allowed is permitted, reason
+    assert str(n_escalatable) in reason
+    assert ("ESC-05" if permitted else "ESC-03") in reason
+
+
+def test_the_escalation_minimum_matches_the_written_policy():
+    """Catch the code and the policy document drifting apart.
+
+    The rule a reviewer reads is the policy text; the rule that executes is
+    the constant. If someone changes one, this fails until they change both.
+    """
+    words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
+    section = policies.get_section("ESC-05")
+    expected = words[policies.MIN_ESCALATABLE_MEMBERS]
+    assert expected in section.text.lower(), (
+        f"ESC-05 says '{section.text}' but the code requires "
+        f"{policies.MIN_ESCALATABLE_MEMBERS} ({expected})"
+    )
+
+
+def test_a_lane_at_the_minimum_actually_produces_a_proposal(client, db):
+    """The boundary, end to end rather than as a pure function."""
+    at_minimum = [
+        s for s in situations.list_situations(db, SNAPSHOT, limit=50)
+        if s.n_escalatable == policies.MIN_ESCALATABLE_MEMBERS
+    ]
+    below = [
+        s for s in situations.list_situations(db, SNAPSHOT, limit=50)
+        if s.n_escalatable == policies.MIN_ESCALATABLE_MEMBERS - 1
+    ]
+    if not at_minimum and not below:
+        pytest.skip("the seeded slice has no lane at or just below the minimum")
+
+    for situation, expect_proposal in (
+        *[(s, True) for s in at_minimum[:1]],
+        *[(s, False) for s in below[:1]],
+    ):
+        body = client.post(
+            f"/api/v1/situations/{situation.situation_id}/investigations"
+            "?mode=deterministic"
+        ).json()
+        assert (body["proposal"] is not None) is expect_proposal, (
+            f"lane {situation.lane} has {situation.n_escalatable} qualifying "
+            f"members; expected proposal={expect_proposal}"
+        )
