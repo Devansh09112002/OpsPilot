@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -348,10 +350,66 @@ def verify(client: httpx.Client, ref: str) -> bool:
     return ok
 
 
+def apply_migrations(client: httpx.Client, ref: str) -> None:
+    """Bring the deployed database to Alembic head, over HTTPS.
+
+    The development network blocks the Postgres ports, so Alembic cannot open
+    its own connection to Supabase from here. It can still *generate* the
+    migration SQL offline (`alembic upgrade <current>:head --sql`), which is
+    the same SQL it would execute, and that is what gets sent.
+
+    The current revision is read from the deployed `alembic_version` table
+    rather than assumed, so running this twice is a no-op instead of an error.
+    """
+    rows = run_sql(client, ref, "select version_num from alembic_version;")
+    if not rows:
+        raise ProvisionError(
+            "The deployed database has no alembic_version row. Run the "
+            "'schema' command first."
+        )
+    current = rows[0]["version_num"]
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(REPO_ROOT / "backend"), str(REPO_ROOT), env.get("PYTHONPATH", "")]
+    )
+    # Alembic still needs a URL to construct its config; it is never connected
+    # to in --sql mode, so a local placeholder is correct here.
+    env.setdefault("DATABASE_URL", "postgresql+psycopg://offline:offline@127.0.0.1:1/offline")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", f"{current}:head", "--sql"],
+        cwd=str(REPO_ROOT / "backend"),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ProvisionError(f"Could not generate migration SQL:\n{result.stderr[-800:]}")
+
+    sql = "\n".join(
+        line for line in result.stdout.splitlines() if not line.startswith("INFO")
+    ).strip()
+    statements = [s.strip() for s in sql.split(";") if s.strip()]
+    statements = [
+        s for s in statements if s.upper() not in {"BEGIN", "COMMIT", "BEGIN TRANSACTION"}
+    ]
+    if not statements:
+        print(f"  already at head ({current}); nothing to apply")
+        return
+
+    print(f"  at {current}; applying {len(statements)} statements")
+    for statement in statements:
+        run_sql(client, ref, statement + ";")
+    head = run_sql(client, ref, "select version_num from alembic_version;")[0]["version_num"]
+    print(f"  now at {head}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "command", choices=["schema", "data", "scores", "verify", "all"])
+        "command",
+        choices=["schema", "migrate", "data", "scores", "verify", "all"])
     args = parser.parse_args(argv)
 
     env = read_env()
@@ -360,6 +418,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command in ("schema", "all"):
             print("[schema]")
             create_schema(client, ref)
+        if args.command in ("migrate", "all"):
+            print("[migrate]")
+            apply_migrations(client, ref)
         if args.command in ("data", "all"):
             print("[data]")
             load_data(client, ref)
