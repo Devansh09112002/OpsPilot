@@ -45,14 +45,15 @@ Ticked only when run and inspected, not when written.
 - [x] Keepalive workflow
 - [x] Provisioning automation (`infra/provision.py`)
 - [x] README, architecture, deployment, API docs
-- [ ] **Supabase project created and seeded** — needs an access token
-- [ ] **Render services deployed** — needs an API key and repo access
-- [ ] E2E suite green against the deployed URLs
-- [ ] Three full journeys completed on the public site
-- [ ] Gemini key rotated before public release
-- [ ] Public URL recorded in the README
+- [x] Supabase project created and seeded (95,952 + 95,952 + 3 + 3,955 rows)
+- [x] Render services deployed on the free plan
+- [x] E2E suite green against the deployed URLs (12/12)
+- [x] Deployed smoke test green (37/37)
+- [x] Public URL recorded in the README
+- [x] Keepalive configured against the live API
+- [ ] **Gemini key rotated** — it came through a chat transcript
+- [ ] Repository made public (optional; currently private by choice)
 
 ## Release blockers still open
-- Public deployment not yet performed (external credentials required).
-- The Gemini key currently in `.env` came through the chat transcript and must
-  be rotated before the demo is shared.
+- **Rotate the Gemini API key** before sharing the demo. Create a new key,
+  set it on the `opspilot-api` Render service, delete the old one.

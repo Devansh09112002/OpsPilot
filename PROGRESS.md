@@ -16,7 +16,7 @@ output inspected.
 | 1. Data + ML | Done | Data gate passes; model trained, evaluated and frozen |
 | 2. Vertical slice | Done | Browser shows real snapshot data and real model scores |
 | 3. AI + action | Done | Real Gemini call verified; approval and tickets tested |
-| 4. Cloud + hardening | **In progress** | Awaiting Supabase and Render credentials |
+| 4. Cloud + hardening | **Done** | Deployed; 37/37 deployed checks and 12/12 browser journeys pass on the public URL |
 
 ---
 
@@ -130,26 +130,50 @@ worst failure mode to discover live:
 
 ---
 
-## Built but not yet verified
+## Deployed and verified
 
-| Item | Why not verified | How it will be |
-|---|---|---|
-| `docker-compose.yml` local stack | Docker cannot be installed on the dev machine (no admin rights) | Render builds the same `backend/Dockerfile`, which verifies the image; compose remains unverified and is labelled as such |
-| GitHub Actions CI | No run yet on the remote | First push to `main` triggers it |
-| Public deployment | Awaiting Supabase and Render credentials | `infra/provision.py` automates it end to end |
-| ~~Full 59-case agent benchmark~~ | Complete: 59/59 | `docs/agent_evaluation.md` |
+| | |
+|---|---|
+| App | https://opspilot-web-hj6k.onrender.com |
+| API | https://opspilot-api-pg66.onrender.com |
+| Database | Supabase free project `tcttvxyvdepcifdxpacp` (us-west-1) |
+
+- `infra/verify_deployment.py`: **37/37** checks against the public URLs.
+- Playwright against the deployed site: **12/12** journeys, including approve
+  and reject. One test is correctly skipped (it asserts the no-LLM path).
+- A live investigation completes in ~5.5 s citing 18 evidence items.
+- The served JS bundle contains no credential material.
+- The session cookie is `HttpOnly; Secure; SameSite=None`, which is what makes
+  a cross-origin guest session work at all.
+
+### Deployment notes worth keeping
+
+- **The development network blocks outbound 5432 and 6543.** 443 is open, both
+  PostgreSQL ports time out. Seeding therefore runs through Supabase's
+  SQL-over-HTTPS endpoint (`infra/seed_over_https.py`). The deployed backend is
+  unaffected: `database: ok` from Render proves the block is local.
+- The Supabase pooler reports `pool_mode: transaction`, confirming the
+  prepared-statement fix was necessary rather than precautionary.
+- The Supabase account had **no organization**; provisioning now creates one
+  over the API rather than sending the owner to the dashboard.
+
+## Built but not verified
+
+| Item | Why not verified |
+|---|---|
+| `docker-compose.yml` local stack | Docker cannot be installed on the dev machine (no admin rights). `backend/Dockerfile` **is** verified: Render builds and runs it. Compose itself remains unexercised and is labelled as such rather than claimed. |
 
 ---
 
-## Blocked — needs the owner
+## Open items
 
-| Blocker | Exact action needed |
-|---|---|
-| Supabase | Create a free account, then a Personal Access Token at <https://supabase.com/dashboard/account/tokens>. Everything after that is automated. |
-| Render | Create a free account, then an API key at <https://dashboard.render.com/u/settings#api-keys>, and grant Render access to the `OpsPilot` repository (private repos need this explicitly). |
-
-`python -m infra.provision all` then creates the database, migrates, ingests,
-creates both services, wires CORS, deploys, and verifies the live URLs.
+- **Rotate the Gemini API key.** It was supplied through a chat transcript and
+  must be treated as exposed. Create a new one at
+  <https://aistudio.google.com/apikey>, set it on the `opspilot-api` service in
+  Render, and delete the old one. Nothing else needs to change.
+- The repository is private, so the "public source repository" deliverable is
+  not met until it is made public. It is verifiably clean: no API key appears
+  in any commit.
 
 ---
 

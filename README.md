@@ -4,9 +4,15 @@ Real historical e-commerce orders, a trained delivery-delay model, and a
 bounded tool-using agent that investigates one order and proposes an
 escalation a human must approve.
 
-**Live demo:** _pending deployment — see [Deployment status](#deployment-status)._
+**Live demo: https://opspilot-web-hj6k.onrender.com**
 
-![Risk queue](docs/screenshots/risk-queue.png)
+> Free-tier hosting sleeps when idle, so the first visit after a quiet period
+> takes up to a minute. The app waits and tells you it is waking rather than
+> showing a broken page.
+
+![Risk queue](docs/screenshots/live-risk-queue.png)
+
+![AI investigation](docs/screenshots/live-investigation.png)
 
 ---
 
@@ -192,9 +198,29 @@ docs/           audit, model report, agent evaluation, API, architecture, deploy
 
 ## Deployment status
 
-Free tier throughout: Render (API + static site), Supabase (PostgreSQL),
-Google Gemini (`gemini-3.5-flash-lite` with a fallback chain). No paid
-service is used.
+**Deployed and verified.**
+
+| | |
+|---|---|
+| App | https://opspilot-web-hj6k.onrender.com |
+| API | https://opspilot-api-pg66.onrender.com |
+| Health | https://opspilot-api-pg66.onrender.com/api/v1/health/ready |
+
+Free tier throughout: Render (Docker web service + static site), Supabase
+(PostgreSQL), Google Gemini (`gemini-3.5-flash-lite` with a fallback chain).
+No paid service is used and no billing is enabled.
+
+Verified against the public URLs, not localhost:
+
+- `python -m infra.verify_deployment` — **37/37 checks pass**, covering queue
+  ranking, the leakage boundary, live inference matching the stored score, a
+  real investigation, approval, idempotency under a double approve, and
+  cross-session isolation.
+- `BASE_URL=... npx playwright test` — **12/12 browser journeys pass**,
+  including the full approve path and the reject path. The one skipped test
+  asserts the no-LLM failure path, which does not apply when a key is set.
+- A real investigation completes on the deployed instance in **~5.5 s**,
+  citing 18 evidence items across 5 facts.
 
 The free tier's behaviour is handled rather than hidden:
 

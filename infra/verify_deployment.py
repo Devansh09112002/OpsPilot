@@ -161,9 +161,23 @@ def verify(api: str, web: str, *, run_investigation: bool) -> Report:
                        f"{served.get('risk_probability')} vs {detail.get('risk_probability')}")
 
         print("\nSession and authorization")
-        cookie = client.cookies.get("opspilot_session")
-        report.add("guest session cookie issued", bool(cookie))
-        tickets = client.get(f"{api}/api/v1/tickets").json()
+        # The session is minted by the first endpoint that needs one, so the
+        # cookie has to be checked *after* such a request, not before.
+        r = client.get(f"{api}/api/v1/tickets")
+        set_cookie = r.headers.get("set-cookie", "")
+        tickets = r.json()
+        report.add(
+            "guest session cookie issued",
+            bool(client.cookies.get("opspilot_session"))
+            or "opspilot_session" in set_cookie,
+        )
+        if set_cookie:
+            lowered = set_cookie.lower()
+            report.add("session cookie is HttpOnly", "httponly" in lowered)
+            report.add(
+                "session cookie is Secure and SameSite=None (cross-origin)",
+                "secure" in lowered and "samesite=none" in lowered,
+            )
         report.add("tickets start empty for a new visitor",
                    tickets.get("total") == 0)
         report.add("ticket list is labelled as simulated",
