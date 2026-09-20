@@ -28,8 +28,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError
-from app.db.models import OrderFeature, SnapshotOrder
-from app.services.orders import get_snapshot
+from app.db.models import OrderFeature, Snapshot, SnapshotOrder
+from app.services import policies
+from app.services.orders import _days_to_deadline, get_snapshot
 
 # Bands that put an order in front of a reviewer at all. Kept in sync with the
 # queue's default view: a "low" order is not a pending decision.
@@ -53,6 +54,8 @@ class SituationMember:
     risk_band: str
     days_in_transit: float | None
     product_category: str | None
+    days_to_deadline: float
+    escalatable: bool
 
 
 @dataclass
@@ -71,6 +74,7 @@ class Situation:
     mean_risk: float
     max_risk: float
     model_version: str | None
+    n_escalatable: int = 0
     members: list[SituationMember] = field(default_factory=list)
 
     @property
@@ -92,6 +96,7 @@ class Situation:
             "mean_risk": round(self.mean_risk, 4),
             "max_risk": round(self.max_risk, 4),
             "model_version": self.model_version,
+            "n_escalatable": self.n_escalatable,
         }
         if with_members:
             payload["members"] = [
@@ -101,6 +106,8 @@ class Situation:
                     "risk_band": m.risk_band,
                     "days_in_transit": m.days_in_transit,
                     "product_category": m.product_category,
+                    "days_to_deadline": m.days_to_deadline,
+                    "escalatable": m.escalatable,
                 }
                 for m in self.members
             ]
@@ -125,6 +132,19 @@ def parse_situation_id(situation_id: str) -> tuple[str, str, str]:
             {"expected": "YYYY-MM-DD__XX-YY"},
         )
     return match["snapshot"], match["seller"], match["customer"]
+
+
+def _deadline_days():
+    """Days from the snapshot to the promised date, as a SQL expression.
+
+    Calendar-date difference, matching `orders._days_to_deadline` exactly: the
+    target rule is stated on dates, so the policy window must be too.
+    """
+    return func.date_part(
+        "day",
+        func.date_trunc("day", OrderFeature.order_estimated_delivery_date)
+        - func.date_trunc("day", Snapshot.snapshot_at),
+    )
 
 
 def _flagged_filter():
@@ -171,9 +191,16 @@ def list_situations(
             func.max(SnapshotOrder.risk_probability),
             func.count().filter(SnapshotOrder.risk_band == "high"),
             func.min(SnapshotOrder.model_version),
+            # ESC-01 per member, expressed in SQL so the list view does not
+            # have to load every member row to show a decision-relevant count.
+            func.count().filter(
+                SnapshotOrder.risk_probability >= policies.ESCALATION_RISK_THRESHOLD,
+                _deadline_days() <= policies.ESCALATION_SLACK_DAYS,
+            ),
         )
         .select_from(SnapshotOrder)
         .join(OrderFeature, OrderFeature.order_id == SnapshotOrder.order_id)
+        .join(Snapshot, Snapshot.snapshot_id == SnapshotOrder.snapshot_id)
         .where(SnapshotOrder.snapshot_id == snapshot_id, *_flagged_filter())
         .group_by(OrderFeature.seller_state, OrderFeature.customer_state)
         .having(func.count() >= min_orders)
@@ -182,7 +209,7 @@ def list_situations(
     ).all()
 
     situations: list[Situation] = []
-    for seller, customer, n, total, mean, mx, n_high, version in rows:
+    for seller, customer, n, total, mean, mx, n_high, version, n_esc in rows:
         if not seller or not customer:
             continue
         situations.append(
@@ -199,6 +226,7 @@ def list_situations(
                 mean_risk=float(mean or 0.0),
                 max_risk=float(mx or 0.0),
                 model_version=version,
+                n_escalatable=int(n_esc or 0),
             )
         )
     return situations
@@ -209,7 +237,7 @@ def get_situation(db: Session, situation_id: str) -> Situation:
     snapshot_id, seller, customer = parse_situation_id(situation_id)
     if not (_STATE.match(seller) and _STATE.match(customer)):
         raise NotFoundError(f"'{situation_id}' is not a valid situation id.")
-    get_snapshot(db, snapshot_id)
+    snap = get_snapshot(db, snapshot_id)
 
     rows = db.execute(
         select(
@@ -219,6 +247,7 @@ def get_situation(db: Session, situation_id: str) -> Situation:
             SnapshotOrder.days_in_transit,
             SnapshotOrder.model_version,
             OrderFeature.product_category,
+            OrderFeature.order_estimated_delivery_date,
         )
         .select_from(SnapshotOrder)
         .join(OrderFeature, OrderFeature.order_id == SnapshotOrder.order_id)
@@ -248,16 +277,27 @@ def get_situation(db: Session, situation_id: str) -> Situation:
         )
     ).scalar_one()
 
-    members = [
-        SituationMember(
+    members = []
+    for r in rows:
+        days_to_deadline = _days_to_deadline(
+            snap.snapshot_at, r.order_estimated_delivery_date
+        )
+        # A member is escalatable only if the backend's own per-order policy
+        # reading says so. ESC-05 counts these; it does not re-derive them.
+        permitted, _ = policies.escalation_permitted(
+            risk_probability=float(r.risk_probability),
+            days_to_deadline=days_to_deadline,
+            is_overdue=False,
+        )
+        members.append(SituationMember(
             order_id=r.order_id,
             risk_probability=float(r.risk_probability),
             risk_band=r.risk_band,
             days_in_transit=r.days_in_transit,
             product_category=r.product_category,
-        )
-        for r in rows
-    ]
+            days_to_deadline=days_to_deadline,
+            escalatable=permitted,
+        ))
     probabilities = [m.risk_probability for m in members]
     return Situation(
         situation_id=make_situation_id(snapshot_id, seller, customer),
@@ -272,5 +312,6 @@ def get_situation(db: Session, situation_id: str) -> Situation:
         mean_risk=sum(probabilities) / len(probabilities),
         max_risk=max(probabilities),
         model_version=rows[0].model_version,
+        n_escalatable=sum(1 for m in members if m.escalatable),
         members=members,
     )

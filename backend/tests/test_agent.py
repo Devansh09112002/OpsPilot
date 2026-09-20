@@ -217,7 +217,7 @@ def test_successful_investigation_calls_every_tool(db, seeded_order, stub_llm):
 
     assert state.status == "completed"
     called = {t["tool"] for t in state.trace}
-    assert called >= set(agent_tools.TOOL_NAMES)
+    assert called >= set(agent_tools.ORDER_TOOL_NAMES)
     assert state.risk_probability is not None
     assert state.model_version
 

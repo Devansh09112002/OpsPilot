@@ -1,9 +1,19 @@
 {
-  "policy_version": "demo-policy-v2",
+  "policy_version": "demo-policy-v2.1",
   "effective_from": "2018-01-01",
   "notice": "Demonstration policy for the OpsPilot demo environment. It does not represent Olist or any real operator.",
-  "change_note": "v2 restates the escalation threshold on the model's CALIBRATED probability. v1 used 0.60 on the raw model output, which was not a probability at all: a raw 0.60 corresponded to an observed late rate of roughly 2 percent. A threshold stated on a calibrated estimate means what it says.",
+  "change_note": "v2 restates the escalation threshold on the model's CALIBRATED probability. v1 used 0.60 on the raw model output, which was not a probability at all: a raw 0.60 corresponded to an observed late rate of roughly 2 percent. A threshold stated on a calibrated estimate means what it says. v2.1 adds ESC-05, EVI-04 and EVI-05 for lane situations. The lane escalation rule deliberately composes ESC-01 rather than defining a second threshold, so there is exactly one risk threshold in the policy.",
   "sections": [
+    {
+      "section_id": "ACT-01",
+      "title": "Authorisation of actions",
+      "text": "The investigation workflow may only propose an escalation. Creating an escalation ticket requires explicit human approval recorded through the OpsPilot interface. No automated approval is permitted under any circumstances."
+    },
+    {
+      "section_id": "ACT-02",
+      "title": "Simulated actions only",
+      "text": "All tickets created in this environment are simulated. No courier, seller or customer is contacted, and no real fulfilment action is taken."
+    },
     {
       "section_id": "ESC-01",
       "title": "Escalation threshold for in-transit orders",
@@ -25,6 +35,11 @@
       "text": "An order already past its promised delivery date is handled under the overdue-recovery process, not the predictive escalation process. Predictive risk estimates are not used to justify escalating an order whose deadline has already passed."
     },
     {
+      "section_id": "ESC-05",
+      "title": "Escalation of a lane situation",
+      "text": "A lane situation - the flagged orders travelling one seller-state to customer-state lane in one snapshot - qualifies for a single carrier escalation when at least three of its member orders each independently qualify under ESC-01. The lane rule composes the order rule; it introduces no separate risk threshold. One escalation covers every member order, and the covered order identifiers must be recorded on the resulting ticket."
+    },
+    {
       "section_id": "EVI-01",
       "title": "Evidence requirements for an escalation",
       "text": "An escalation proposal must cite the order identifier, the model-generated risk estimate with its model version, and the remaining days before the promised date. A proposal that cannot cite all three is recorded as insufficient evidence and no escalation is raised."
@@ -40,14 +55,14 @@
       "text": "The factors shown alongside a risk estimate describe which inputs moved the model's score for that order. They are attributions of the model's own output, not established causes of delay, and must be described as such. A factor may be cited as context for a recommendation but never as a demonstrated cause."
     },
     {
-      "section_id": "ACT-01",
-      "title": "Authorisation of actions",
-      "text": "The investigation workflow may only propose an escalation. Creating an escalation ticket requires explicit human approval recorded through the OpsPilot interface. No automated approval is permitted under any circumstances."
+      "section_id": "EVI-04",
+      "title": "Evidence requirements for a lane situation",
+      "text": "An assessment of a lane situation may cite only orders that belong to that situation, and may state only counts and aggregates returned by the situation tools. The number of member orders, the number qualifying under ESC-01, and the expected number of late deliveries must each come from a tool result rather than from the assessment's own arithmetic."
     },
     {
-      "section_id": "ACT-02",
-      "title": "Simulated actions only",
-      "text": "All tickets created in this environment are simulated. No courier, seller or customer is contacted, and no real fulfilment action is taken."
+      "section_id": "EVI-05",
+      "title": "Lane history is background, not forecast",
+      "text": "A lane's historical late rate is measured only over orders delivered before the snapshot date, and on this dataset a lane's past rate is only weakly related to its future rate (rank correlation +0.29). It may be cited as background. It may not be presented as a prediction of the lane's future performance, and it may not be used as the basis of an escalation."
     }
   ]
 }

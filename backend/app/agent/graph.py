@@ -16,7 +16,6 @@ reading of the policy. A report that fails verification becomes
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -26,9 +25,9 @@ from sqlalchemy.orm import Session
 from app.agent import tools as agent_tools
 from app.agent.llm import LLMUnavailableError, generate_report
 from app.agent.prompts import SYSTEM_PROMPT, build_user_prompt
+from app.agent.verification import verify_report
 from app.core.logging import get_logger
-from app.schemas.investigations import EvidenceItem, FactItem, InvestigationReport
-from app.services import policies
+from app.schemas.investigations import EvidenceItem, InvestigationReport
 
 log = get_logger(__name__)
 
@@ -183,86 +182,20 @@ def synthesize(state: InvestigationState) -> InvestigationState:
 
 
 def verify(state: InvestigationState) -> InvestigationState:
-    """Check the model's report against the real tool results.
+    """Apply the shared safety gate to the generated report.
 
-    Three checks, each of which can only *reduce* what the report claims:
-
-    1. Every cited evidence id must exist. Facts citing unknown ids are dropped.
-    2. Every policy section id mentioned must exist in the loaded policy.
-    3. The recommendation may not exceed what the backend's own policy reading
-       permits. A model that recommends escalation against policy is downgraded.
+    The checks live in `agent.verification` because the situation graph must
+    apply exactly the same ones; see that module for what each can do.
     """
     if state.report is None or state.status in {"failed", "insufficient_evidence"}:
         return state
 
-    known_ids = {e.evidence_id for e in state.evidence}
-    report = state.report
-
-    kept: list[FactItem] = []
-    dropped = 0
-    for fact in report.facts:
-        unknown = [i for i in fact.evidence_ids if i not in known_ids]
-        if unknown:
-            dropped += 1
-            log.warning(
-                "investigation_fact_rejected",
-                order_id=state.order_id,
-                unknown_evidence_ids=unknown,
-            )
-            continue
-        kept.append(fact)
-
-    extra_limitations: list[str] = []
-    if dropped:
-        extra_limitations.append(
-            f"{dropped} generated statement(s) cited evidence that does not exist "
-            "and were removed by the backend before display."
-        )
-
-    # Policy ids mentioned anywhere in the prose must be real.
-    # The policy document may be missing or malformed - `gather_policy` already
-    # recorded that as a tool failure. Verification must still run rather than
-    # crash the whole investigation, so an unreadable policy means "cannot
-    # validate citations" instead of an exception.
-    try:
-        valid_sections = {s.section_id for s in policies.all_sections()}
-        policy_readable = True
-    except policies.PolicyUnavailableError:
-        valid_sections = set()
-        policy_readable = False
-    mentioned = set(re.findall(r"\b(?:ESC|EVI|ACT)-\d{2}\b",
-                               f"{report.summary} {report.recommendation_rationale}"))
-    if not policy_readable:
-        extra_limitations.append(
-            "The demonstration policy document could not be read, so no policy "
-            "citation in this report could be verified and no escalation is "
-            "proposed."
-        )
-        log.warning("investigation_policy_unreadable", order_id=state.order_id)
-    elif invented := (mentioned - valid_sections):
-        extra_limitations.append(
-            f"Reference(s) to non-existent policy section(s) {sorted(invented)} were "
-            "flagged by the backend and should be disregarded."
-        )
-        log.warning("investigation_invented_policy", sections=sorted(invented))
-
-    # The recommendation cannot exceed the backend's own policy reading.
-    recommendation = report.recommendation
-    if recommendation == "propose_escalation" and not state.policy_permits_escalation:
-        recommendation = "monitor"
-        extra_limitations.append(
-            "The generated recommendation to escalate was overridden by the backend "
-            f"because the demo policy does not permit it here. {state.policy_determination}"
-        )
-        log.warning("investigation_recommendation_downgraded", order_id=state.order_id)
-
-    state.report = InvestigationReport(
-        summary=report.summary,
-        facts=kept,
-        limitations=[*report.limitations, *extra_limitations],
-        recommendation=recommendation,
-        recommendation_rationale=report.recommendation_rationale,
-        proposed_action=report.proposed_action if recommendation == "propose_escalation" else None,
+    state.report = verify_report(
+        report=state.report,
+        known_evidence_ids={e.evidence_id for e in state.evidence},
+        policy_permits_escalation=state.policy_permits_escalation,
+        policy_determination=state.policy_determination,
+        subject=state.order_id,
     )
     return state
 

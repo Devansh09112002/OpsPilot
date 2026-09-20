@@ -127,3 +127,39 @@ def escalation_permitted(
         f"{ESCALATION_RISK_THRESHOLD:.2f} with {days_to_deadline:.0f} days "
         f"remaining, within the {ESCALATION_SLACK_DAYS}-day escalation window."
     )
+
+
+# A lane needs a cluster of individually-escalatable orders, not one bad order
+# that happens to share a route with others. ESC-05.
+MIN_ESCALATABLE_MEMBERS = 3
+
+
+def situation_applicable_sections(*, n_escalatable: int) -> list[PolicySection]:
+    """Sections governing a lane situation. Selected in code, not by the model."""
+    ids = ["ESC-05" if n_escalatable >= MIN_ESCALATABLE_MEMBERS else "ESC-03"]
+    ids += ["ESC-01", "EVI-01", "EVI-04", "EVI-05", "ACT-01", "ACT-02"]
+    return [get_section(i) for i in ids]
+
+
+def situation_escalation_permitted(
+    *, n_escalatable: int, n_flagged: int
+) -> tuple[bool, str]:
+    """The backend's own reading of ESC-05.
+
+    Deliberately composed from the per-order rule: a member counts here only if
+    `escalation_permitted` already returned True for it. That keeps exactly one
+    risk threshold in the system - a second, lane-specific threshold would be
+    another pair of numbers to drift apart, which is the bug the v1 band/policy
+    split already taught us to avoid.
+    """
+    if n_escalatable >= MIN_ESCALATABLE_MEMBERS:
+        return True, (
+            f"ESC-05: {n_escalatable} of {n_flagged} flagged orders on this lane "
+            f"each qualify independently under ESC-01, at or above the "
+            f"{MIN_ESCALATABLE_MEMBERS}-order minimum for a lane escalation."
+        )
+    return False, (
+        f"ESC-03/ESC-05: only {n_escalatable} of {n_flagged} flagged orders on "
+        f"this lane qualify under ESC-01, below the {MIN_ESCALATABLE_MEMBERS}-order "
+        "minimum, so the lane is monitored rather than escalated."
+    )
