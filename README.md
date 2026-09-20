@@ -73,11 +73,22 @@ Two things the report states plainly rather than hiding:
 
 ### Agent — [`docs/agent_evaluation.md`](docs/agent_evaluation.md)
 
-59 cases spanning ordinary investigations, missing data, model and policy
-outages, tool exceptions, provider failures, malformed output, and prompt
-injection. Scoring reads the persisted record and tool trace: a claim citing an
-evidence id that no tool returned fails the case even when the sentence is
-true.
+**59/59 cases pass, held-out 30/30 (100%)** against a stated 85% target.
+
+| Criterion | Result |
+|---|---|
+| Claim support — every cited evidence id exists in real tool output | 100% |
+| Policy citation validity | 100% |
+| Approval compliance — no proposal the policy forbids | 100% |
+| Outcome containment — no delivery result in any report | 100% |
+| Investigation latency | median 3.3 s, p95 5.4 s (target p95 ≤30 s) |
+
+Cases span ordinary investigations across all three snapshots and risk bands,
+plus injected faults: missing order, model outage, missing and malformed
+policy, sparse history, tool exception, provider outage, rate limit, malformed
+output, schema violation, and five prompt-injection attempts. Scoring reads the
+persisted record and tool trace, so a claim citing an evidence id that no tool
+returned fails the case even when the sentence happens to be true.
 
 ---
 

@@ -1,9 +1,9 @@
 # OpsPilot - Agent Evaluation
 
-Generated: 2026-09-20T12:19:22+00:00
+Generated: 2026-09-20T12:25:23+00:00
 Provider model: `gemini-3.5-flash-lite`
 
-**Held-out pass rate: 100.0%** (1/1 cases) against a target of 85%.
+**Held-out pass rate: 100.0%** (30/30 cases) against a target of 85%.
 
 Produced by `python -m evaluation.agent.run_benchmark`. Every number here is
 measured; none is hand-entered.
@@ -23,8 +23,8 @@ investigation record and its tool trace:
 
 ## 2. Benchmark composition
 
-2 cases: 1 development,
-1 held out. Only held-out results are quoted
+59 cases: 29 development,
+30 held out. Only held-out results are quoted
 as the benchmark figure; development cases exist so prompts can be iterated on
 without contaminating it.
 
@@ -34,20 +34,44 @@ easy. Fault cases inject one specific failure each.
 
 | category | cases |
 |---|---|
+| duplicate_proposal | 1 |
+| llm_outage | 2 |
+| malformed_llm_output | 2 |
+| missing_order | 2 |
+| model_unavailable | 2 |
+| ordinary_high_risk | 12 |
+| ordinary_low_risk | 12 |
+| ordinary_medium_risk | 12 |
+| overdue_order | 3 |
+| policy_unavailable | 2 |
+| prompt_injection | 5 |
 | sparse_history | 2 |
+| tool_failure | 2 |
 
 ## 3. Results by split
 
 | group | ran | passed | claim support | policy citations | approval compliance |
 |---|---|---|---|---|---|
-| development | 1 | 1/1 (100%) | 100.0% | 100.0% | 100.0% |
-| held_out | 1 | 1/1 (100%) | 100.0% | 100.0% | 100.0% |
+| development | 29 | 29/29 (100%) | 100.0% | 100.0% | 100.0% |
+| held_out | 30 | 30/30 (100%) | 100.0% | 100.0% | 100.0% |
 
 ## 4. Results by category
 
 | group | ran | passed | claim support | policy citations | approval compliance |
 |---|---|---|---|---|---|
+| duplicate_proposal | 1 | 1/1 (100%) | 100.0% | 100.0% | 100.0% |
+| llm_outage | 2 | 2/2 (100%) | 100.0% | 100.0% | 100.0% |
+| malformed_llm_output | 2 | 2/2 (100%) | 100.0% | 100.0% | 100.0% |
+| missing_order | 2 | 2/2 (100%) | 100.0% | 100.0% | 100.0% |
+| model_unavailable | 2 | 2/2 (100%) | 100.0% | 100.0% | 100.0% |
+| ordinary_high_risk | 12 | 12/12 (100%) | 100.0% | 100.0% | 100.0% |
+| ordinary_low_risk | 12 | 12/12 (100%) | 100.0% | 100.0% | 100.0% |
+| ordinary_medium_risk | 12 | 12/12 (100%) | 100.0% | 100.0% | 100.0% |
+| overdue_order | 3 | 3/3 (100%) | 100.0% | 100.0% | 100.0% |
+| policy_unavailable | 2 | 2/2 (100%) | 100.0% | 100.0% | 100.0% |
+| prompt_injection | 5 | 5/5 (100%) | 100.0% | 100.0% | 100.0% |
 | sparse_history | 2 | 2/2 (100%) | 100.0% | 100.0% | 100.0% |
+| tool_failure | 2 | 2/2 (100%) | 100.0% | 100.0% | 100.0% |
 
 ## 5. Failures
 
@@ -55,15 +79,15 @@ _No case failed._
 
 ## 6. Latency
 
-- median **3655 ms**, p95 **3052 ms**, max 4259 ms
+- median **3303 ms**, p95 **5384 ms**, max 14927 ms
 
 Measured end to end for the whole investigation - four tool calls plus one
 provider call - on the development machine against a local database.
 
 ## 7. Cost
 
-- 2 provider calls; median 2753 input / 511 output tokens per investigation
-- benchmark total: 5,506 input, 1,022 output tokens
+- 49 provider calls; median 2763 input / 475 output tokens per investigation
+- benchmark total: 133,832 input, 26,962 output tokens
 - Gemini free tier: no monetary cost. The equivalent paid rate for gemini-2.5-flash would be well under US$0.01 per investigation at these token counts.
 
 ## 8. Interpretation and limits

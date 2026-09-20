@@ -39,18 +39,28 @@ export default function RiskQueue() {
   const includeOverdue = params.get("overdue") === "1";
   const offset = Number(params.get("offset") ?? 0);
 
+  // The functional form matters. Two updates race on first load: the default
+  // snapshot, set when the snapshot list arrives, and any filter the visitor
+  // changes while it is still loading. Building the next params from a
+  // captured `params` would let the later call clobber the earlier one,
+  // leaving the queue with no snapshot at all and permanently empty.
   const update = useCallback(
     (patch: Record<string, string | null>) => {
-      const next = new URLSearchParams(params);
-      for (const [k, v] of Object.entries(patch)) {
-        if (v === null || v === "") next.delete(k);
-        else next.set(k, v);
-      }
-      // Any filter change resets pagination; otherwise offset can exceed total.
-      if (!("offset" in patch)) next.delete("offset");
-      setParams(next, { replace: true });
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          for (const [k, v] of Object.entries(patch)) {
+            if (v === null || v === "") next.delete(k);
+            else next.set(k, v);
+          }
+          // Any filter change resets pagination; otherwise offset can exceed total.
+          if (!("offset" in patch)) next.delete("offset");
+          return next;
+        },
+        { replace: true },
+      );
     },
-    [params, setParams],
+    [setParams],
   );
 
   useEffect(() => {
@@ -58,11 +68,19 @@ export default function RiskQueue() {
     api
       .snapshots()
       .then((list) => {
-        if (cancelled) return;
+        if (cancelled || !list.length) return;
         setSnapshots(list);
-        if (!snapshotId && list.length) {
-          update({ snapshot: list[list.length - 1].snapshot_id });
-        }
+        // Default to the most recent snapshot, but never overwrite a snapshot
+        // the visitor (or a shared link) already chose.
+        setParams(
+          (prev) => {
+            if (prev.get("snapshot")) return prev;
+            const next = new URLSearchParams(prev);
+            next.set("snapshot", list[list.length - 1].snapshot_id);
+            return next;
+          },
+          { replace: true },
+        );
       })
       .catch((e: ApiError) => !cancelled && setError(e.message));
     return () => {
@@ -135,7 +153,12 @@ export default function RiskQueue() {
 
         <div className="field">
           <label htmlFor="band">Risk band</label>
-          <select id="band" value={riskBand} onChange={(e) => update({ band: e.target.value })}>
+          <select
+            id="band"
+            value={riskBand}
+            disabled={!snapshots}
+            onChange={(e) => update({ band: e.target.value })}
+          >
             <option value="">All bands</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
@@ -145,7 +168,12 @@ export default function RiskQueue() {
 
         <div className="field">
           <label htmlFor="sort">Sort by</label>
-          <select id="sort" value={sort} onChange={(e) => update({ sort: e.target.value })}>
+          <select
+            id="sort"
+            value={sort}
+            disabled={!snapshots}
+            onChange={(e) => update({ sort: e.target.value })}
+          >
             <option value="risk">Highest risk</option>
             <option value="deadline">Nearest deadline</option>
             <option value="handover">Most recent handover</option>
@@ -157,6 +185,7 @@ export default function RiskQueue() {
           <select
             id="overdue"
             value={includeOverdue ? "1" : "0"}
+            disabled={!snapshots}
             onChange={(e) => update({ overdue: e.target.value === "1" ? "1" : null })}
           >
             <option value="0">Hidden</option>

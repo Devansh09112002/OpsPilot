@@ -17,7 +17,11 @@ os.environ.setdefault(
     "DATABASE_URL",
     "postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5433/opspilot_test",
 )
-os.environ.setdefault("LLM_API_KEY", "")
+# Tests must never spend provider quota: every LLM path is stubbed, and an
+# accidental real call would be both slow and billable against the free tier.
+os.environ["LLM_API_KEY"] = ""
+os.environ["GEMINI_API_KEY"] = ""
+os.environ["GOOGLE_API_KEY"] = ""
 os.environ.setdefault("ENVIRONMENT", "test")
 
 from fastapi.testclient import TestClient
@@ -34,7 +38,13 @@ from app.db.models import (
     SnapshotOrder,
 )
 
-SOURCE_URL = "postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5433/opspilot"
+# The already-ingested database the test slice is copied from. CI runs its
+# PostgreSQL service on 5432, the local portable cluster on 5433, so this is
+# read from the environment rather than hardcoded.
+SOURCE_URL = os.environ.get(
+    "OPSPILOT_TEST_SOURCE_URL",
+    "postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5433/opspilot",
+)
 
 SEED_SNAPSHOT = "2018-08-15"
 SEED_ORDERS = 400

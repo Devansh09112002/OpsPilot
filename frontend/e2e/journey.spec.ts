@@ -109,6 +109,9 @@ test.describe("Investigation, approval and ticket", () => {
     test.setTimeout(150_000);
 
     await page.goto("/");
+    // Wait for the queue to load before filtering it: the controls are
+    // disabled until the snapshot list arrives.
+    await expect(page.getByTestId("order-row").first()).toBeVisible();
     await page.locator("#band").selectOption("high");
     await expect(page.getByTestId("order-row").first()).toBeVisible();
     await page.getByTestId("order-row").first().click();
@@ -143,6 +146,7 @@ test.describe("Investigation, approval and ticket", () => {
     test.setTimeout(150_000);
 
     await page.goto("/");
+    await expect(page.getByTestId("order-row").first()).toBeVisible();
     await page.locator("#band").selectOption("high");
     await expect(page.getByTestId("order-row").first()).toBeVisible();
     await page.getByTestId("order-row").nth(1).click();
