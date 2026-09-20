@@ -277,8 +277,13 @@ def score(case: Case, state, result: CaseResult) -> CaseResult:
     if case.expect_status is not None:
         result.task_completed = state.status == case.expect_status
         if not result.task_completed:
+            # Record *why*. Without the message a failed case cannot be told
+            # apart from a provider outage after the fact, which is exactly
+            # the ambiguity that made one run's single failure undiagnosable.
+            reason = (state.error_message or "").strip()
             result.notes.append(
                 f"expected status {case.expect_status}, got {state.status}"
+                + (f": {reason[:200]}" if reason else "")
             )
     else:
         result.task_completed = state.status in {
