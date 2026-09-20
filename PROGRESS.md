@@ -53,7 +53,8 @@ output inspected.
   is configured.
 - **Agent benchmark: 59/59, held-out 30/30 (100%)** against an 85% target.
   Claim support, policy citation validity, approval compliance and outcome
-  containment all 100%. Latency median 3.3 s, p95 5.4 s.
+  containment all 100%. Latency median 2.8 s, p95 5.0 s; median
+  3,576 input / 527 output tokens per investigation.
 - **Real Gemini call verified** (`gemini-3.5-flash`): structured output
   validated, evidence ids cited correctly, policy-compliant recommendation.
   591 input / 287 output tokens, 7.1 s.
@@ -100,6 +101,23 @@ Worth recording because each would have shipped silently:
 10. Gemini's free tier caps requests **per model per day** (measured: 20). The
     original caps were nine times over it, and the retry for a rejected
     thinking budget was silently doubling consumption.
+
+11. The risk band and the policy escalation threshold were derived
+    independently - a validation quantile (0.1659) and a round number (0.15) -
+    so an order between them displayed as "medium risk" and was escalated
+    anyway. **Found by the agent benchmark**, which scored it as a failed case;
+    the agent was right and the expectation was wrong. Both now read one
+    constant in `data_pipeline/spec.py`, with a test asserting they match and a
+    second asserting no stored medium-band order clears the threshold.
+12. `infra/scan_secrets.py` ran `git ls-files` relative to the working
+    directory. Invoked from a subdirectory it scanned only that subtree and
+    reported the repository clean - a false negative in the one tool whose
+    false negatives publish credentials. Anchored to the repo root; the test
+    runs it from three directories and compares the file sets.
+13. `backend/tests/conftest.py` drops and recreates `DATABASE_URL` on every
+    run. Pointed at the ingested source database it destroyed the suite's own
+    input, after which all 149 tests "passed" by skipping. It now refuses to
+    start rather than deleting its own fixture data.
 
 ### Found by reviewing the deployment path before deploying
 

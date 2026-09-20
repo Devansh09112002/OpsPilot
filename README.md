@@ -189,7 +189,7 @@ open http://localhost:5173
 ### Tests
 
 ```bash
-pytest backend/tests                        # 148 backend tests
+pytest backend/tests                        # 151 backend tests
 cd frontend && npx playwright test          # browser journeys
 python -m evaluation.agent.run_benchmark    # agent benchmark
 ```
