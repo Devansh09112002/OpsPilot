@@ -16,6 +16,7 @@ import {
   TableSkeleton,
   formatDate,
   formatBRL,
+  formatRisk,
   shortId,
 } from "../components/common";
 import { ApiError, api } from "../lib/api";
@@ -127,10 +128,12 @@ export default function RiskQueue() {
         <h1>Delivery risk queue</h1>
         <p className="muted" style={{ maxWidth: "70ch" }}>
           Real Olist marketplace orders that were in transit on the selected
-          historical date. Each risk score was produced by the trained model
-          from information available <strong>at carrier handover</strong>. The
-          data is historical; the scoring, AI investigation and ticketing you
-          trigger here run live.
+          historical date. Each figure is a <strong>calibrated estimate</strong>{" "}
+          of the chance that order missed its promised date, produced by the
+          trained model from information available{" "}
+          <strong>at carrier handover</strong> and fitted to observed
+          frequencies on held-out data. The data is historical; the scoring, AI
+          investigation and ticketing you trigger here run live.
         </p>
       </div>
 
@@ -226,8 +229,8 @@ export default function RiskQueue() {
             <div className="stat__value stat__value--low">{stats.low_risk.toLocaleString()}</div>
           </div>
           <div className="stat">
-            <div className="stat__label">Mean risk score</div>
-            <div className="stat__value">{stats.mean_risk.toFixed(3)}</div>
+            <div className="stat__label">Mean estimated risk</div>
+            <div className="stat__value">{formatRisk(stats.mean_risk)}</div>
           </div>
         </div>
       )}
@@ -241,7 +244,7 @@ export default function RiskQueue() {
               <thead>
                 <tr>
                   <th>Order</th>
-                  <th className="num">Risk</th>
+                  <th className="num">Est. late</th>
                   <th>Band</th>
                   <th className="num">Days to deadline</th>
                   <th>Promised</th>

@@ -23,7 +23,7 @@ from app.core.logging import get_logger
 from app.core.sessions import get_guest_session
 from app.db.models import GuestSession
 from app.db.session import get_db
-from app.ml.predictor import prediction_computed_at, predictor, risk_band
+from app.ml.predictor import prediction_computed_at, predictor
 from app.schemas.investigations import (
     AuditEventOut,
     DecisionResponse,
@@ -152,7 +152,7 @@ def get_order(
     _: None = Depends(rate_limit),
     db: Session = Depends(get_db),
 ) -> OrderAsOf:
-    return order_service.get_order_as_of(db, order_id, snapshot_id)
+    return order_service.get_order_as_of(db, order_id, snapshot_id, with_factors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -180,7 +180,9 @@ def create_prediction(
     order = order_service.get_order_as_of(db, payload.order_id, payload.snapshot_id)
     feature_row = order_service.get_feature_row(db, payload.order_id)
     try:
-        probability = predictor.predict_one(feature_row.features or {})
+        prediction = predictor.predict_one(
+            feature_row.features or {}, with_factors=True
+        )
     except Exception as exc:
         raise ServiceUnavailableError(
             "The model could not score this order.", {"reason": type(exc).__name__}
@@ -189,9 +191,12 @@ def create_prediction(
     return PredictionResponse(
         order_id=payload.order_id,
         snapshot_id=payload.snapshot_id,
-        risk_probability=round(probability, 4),
-        risk_band=risk_band(probability),
+        risk_probability=round(prediction.probability, 4),
+        ranking_score=round(prediction.ranking_score, 6),
+        risk_band=prediction.band,
         model_version=predictor.model_version or "unknown",
+        calibrated=prediction.calibrated,
+        risk_factors=prediction.factors,
         prediction_as_of=order.order_delivered_carrier_date,
         computed_at=prediction_computed_at(),
     )
@@ -326,6 +331,9 @@ def meta() -> dict:
         "model_version": predictor.model_version,
         "model_family": meta_doc.get("model_family"),
         "model_available": predictor.available,
+        "calibrated": predictor.calibrated,
+        "calibration_method": meta_doc.get("calibration_method") or None,
+        "band_thresholds": predictor.band_thresholds,
         "training_cutoff": meta_doc.get("training_cutoff"),
         "policy_version": policy_service.policy_version(),
         "llm_configured": get_settings().llm_configured,

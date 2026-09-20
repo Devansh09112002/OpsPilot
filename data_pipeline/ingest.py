@@ -26,22 +26,13 @@ from app.db.models import (
 from app.db.session import SessionLocal, engine
 from data_pipeline import spec
 from data_pipeline.features import MODEL_FEATURES
-from ml_pipeline.model import load_artifact, predict_risk
+
+# Bands are presentation only, and their cut points come from the artifact so
+# they track the model rather than being hand-set. The UI always shows the
+# numeric probability next to the band.
+from ml_pipeline.model import band_for, calibrate, load_artifact, predict_risk
 
 BATCH = 2000
-
-# Risk bands are presentation only. They are cut on the served score, and the
-# UI always shows the numeric probability alongside the band.
-HIGH_BAND = 0.60
-MEDIUM_BAND = 0.30
-
-
-def risk_band(p: float) -> str:
-    if p >= HIGH_BAND:
-        return "high"
-    if p >= MEDIUM_BAND:
-        return "medium"
-    return "low"
 
 
 def _require(path):
@@ -62,8 +53,13 @@ def ingest() -> dict:
     # An order can be in transit across several snapshots, so membership is
     # many-to-one against the one-row-per-order feature table.
     scored = members.merge(features, on="order_id", how="inner", validate="many_to_one")
-    scored["risk_probability"] = predict_risk(model, scored)
-    scored["risk_band"] = [risk_band(p) for p in scored["risk_probability"]]
+    calibrator = meta.get("_calibrator")
+    bands = meta.get("band_thresholds") or {"high": 0.60, "medium": 0.30}
+    scored["ranking_score"] = predict_risk(model, scored)
+    scored["risk_probability"] = calibrate(calibrator, scored["ranking_score"])
+    scored["risk_band"] = [band_for(p, bands) for p in scored["risk_probability"]]
+    print(f"  calibrated: {bool(calibrator)}; bands high>={bands['high']:.4f} "
+          f"medium>={bands['medium']:.4f}")
 
     stats: dict[str, int] = {}
     with SessionLocal() as db:  # type: Session
@@ -154,6 +150,7 @@ def ingest() -> dict:
                 "is_overdue": bool(r.is_overdue),
                 "days_in_transit": float(r.days_in_transit),
                 "risk_probability": float(r.risk_probability),
+                "ranking_score": float(r.ranking_score),
                 "risk_band": r.risk_band,
                 "model_version": model_version,
             }

@@ -256,6 +256,90 @@ def test_artifact_loads_and_matches_current_feature_schema():
     assert meta["model_version"]
 
 
+def test_artifact_carries_a_calibrator_and_band_thresholds():
+    _, meta = load_artifact(spec.ARTIFACT_DIR)
+    assert meta["calibrated"] is True
+    assert meta["_calibrator"] is not None
+    bands = meta["band_thresholds"]
+    assert 0.0 < bands["medium"] < bands["high"] < 1.0
+
+
+def test_calibration_improves_brier_without_changing_the_ranking(features):
+    """Isotonic is monotonic, so it must not reorder anything."""
+    import numpy as np
+    from scipy.stats import spearmanr
+
+    from ml_pipeline.model import calibrate
+
+    model, meta = load_artifact(spec.ARTIFACT_DIR)
+    sample = features[features["split"] == "test"].head(2000)
+    raw = predict_risk(model, sample)
+    cal = calibrate(meta["_calibrator"], raw)
+
+    # Monotonic non-decreasing: a higher raw score never yields a lower estimate.
+    order = np.argsort(raw)
+    assert np.all(np.diff(cal[order]) >= -1e-12)
+    assert spearmanr(raw, cal).statistic > 0.99
+
+    metrics = meta["calibration_metrics"]
+    assert metrics["brier_calibrated_test"] < metrics["brier_raw_test"]
+
+
+def test_calibrated_scores_track_observed_frequency(features, outcomes):
+    """The point of calibration: predicted ~= observed, which raw was not."""
+    import numpy as np
+
+    from ml_pipeline.model import calibrate
+
+    model, meta = load_artifact(spec.ARTIFACT_DIR)
+    labelled = features.merge(outcomes, on="order_id")
+    test = labelled[labelled["split"] == "test"]
+    raw = predict_risk(model, test)
+    cal = calibrate(meta["_calibrator"], raw)
+    y = test[spec.TARGET_NAME].to_numpy().astype(int)
+
+    # Mean predicted probability should be close to the observed base rate.
+    assert abs(cal.mean() - y.mean()) < 0.07
+    # The raw score is wildly off, which is why calibration was needed.
+    assert abs(raw.mean() - y.mean()) > 0.3
+    assert not np.isnan(cal).any()
+
+
+def test_explanations_sum_to_the_model_margin(features):
+    """TreeSHAP is exact; if contributions do not reconstruct the margin,
+    the attribution shown to a user is wrong."""
+    import numpy as np
+    import xgboost as xgb
+
+    from ml_pipeline.model import _expanded_to_source
+
+    model, _ = load_artifact(spec.ARTIFACT_DIR)
+    row = features[features["split"] == "test"].head(1)[MODEL_FEATURES]
+
+    transformed = model.named_steps["pre"].transform(row)
+    booster = model.named_steps["clf"].get_booster()
+    matrix = xgb.DMatrix(transformed)
+    contribs = booster.predict(matrix, pred_contribs=True)[0]
+    margin = booster.predict(matrix, output_margin=True)[0]
+
+    np.testing.assert_allclose(contribs.sum(), margin, rtol=1e-5)
+    # One source feature per transformed column, so aggregation cannot mis-map.
+    assert len(_expanded_to_source(model)) == transformed.shape[1]
+
+
+def test_explanation_aggregates_one_hot_columns_to_their_source(features):
+    from ml_pipeline.model import explain
+
+    model, _ = load_artifact(spec.ARTIFACT_DIR)
+    row = features[features["split"] == "test"].head(1)[MODEL_FEATURES]
+    factors = explain(model, row)
+
+    assert factors
+    # Never a one-hot column name like customer_state_BA.
+    assert all(f["feature"] in MODEL_FEATURES for f in factors)
+    assert all(f["label"] and f["label"] != f["feature"] for f in factors)
+
+
 def test_served_scores_match_the_offline_pipeline(features):
     """The API path and the training path must produce identical numbers."""
     model, _ = load_artifact(spec.ARTIFACT_DIR)

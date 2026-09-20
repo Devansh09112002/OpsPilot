@@ -1,6 +1,6 @@
 # OpsPilot - Model Report
 
-**Model version:** `xgboost-20260919`
+**Model version:** `xgboost-20260920`
 **Served family:** xgboost
 **Primary metric:** mean Precision@50 across simulated snapshots - the share of
 genuinely late orders among the top 50 an operations team would review.
@@ -115,22 +115,46 @@ are quoted, the simulated one is the honest one.
 
 ## 7. Calibration
 
+The raw model output is **not** a probability. `scale_pos_weight` rebalances
+the classes during training, which inflates every score: measured on held-out
+data, a raw 0.65 corresponded to a **2.4%** observed late rate, a 27x
+overstatement. Displaying that number to a person is misleading however
+carefully it is captioned.
+
+An isotonic regression fitted on the **validation** split maps the raw score to
+an estimated probability. Isotonic is monotonic, so the ranking is unchanged
+and every metric above still holds; the queue continues to sort on the raw
+score because calibration introduces ties.
+
+|  | raw score | calibrated |
+|---|---|---|
+| Brier score (test) | 0.28485 | **0.02952** |
+| mean predicted (test) | 0.4824 | 0.0886 |
+| observed base rate | 0.0301 | 0.0301 |
+
+Calibration improves the Brier score **9.6x**, and the mean calibrated estimate (0.0886) now sits close to the observed base rate (0.0301).
+
+Risk bands are cut on the calibrated distribution rather than set by hand: **high** at 0.1659 (the validation 95th percentile, roughly the review capacity), **medium** at 0.1250 (75th percentile).
+
+Reliability of the **calibrated** estimate on the held-out test split:
+
 | predicted band | orders | mean predicted | observed late rate |
 |---|---|---|---|
-| 0.0-0.1 | 1,852 | 0.056 | 0.003 |
-| 0.1-0.2 | 1,881 | 0.148 | 0.009 |
-| 0.2-0.3 | 1,586 | 0.249 | 0.009 |
-| 0.3-0.4 | 1,633 | 0.350 | 0.015 |
-| 0.4-0.5 | 1,914 | 0.452 | 0.021 |
-| 0.5-0.6 | 2,403 | 0.552 | 0.020 |
-| 0.6-0.7 | 3,097 | 0.650 | 0.024 |
-| 0.7-0.8 | 2,646 | 0.747 | 0.037 |
-| 0.8-0.9 | 1,478 | 0.843 | 0.074 |
-| 0.9-1.0 | 318 | 0.932 | 0.421 |
+| 0.0-0.1 | 10,098 | 0.046 | 0.012 |
+| 0.1-0.2 | 8,410 | 0.126 | 0.037 |
+| 0.2-0.3 | 96 | 0.257 | 0.146 |
+| 0.3-0.4 | 17 | 0.365 | 0.353 |
+| 0.4-0.5 | 105 | 0.470 | 0.429 |
+| 0.5-0.6 | 9 | 0.560 | 0.333 |
+| 0.6-0.7 | 6 | 0.619 | 0.667 |
+| 0.7-0.8 | 19 | 0.728 | 0.684 |
+| 0.8-0.9 | 28 | 0.883 | 0.929 |
+| 0.9-1.0 | 20 | 0.933 | 1.000 |
 
-Scores are used for **ranking**, not as calibrated probabilities. Where predicted
-and observed rates diverge, the UI presents the value as a relative risk score
-carrying its model version.
+The calibrated value is what the product displays and what the demo policy's
+escalation threshold is stated on. `docs/api_contracts.md` returns both:
+`risk_probability` (calibrated, for reading) and `ranking_score` (raw, the
+sort key).
 
 ## 8. The three frozen demo snapshots
 
@@ -183,7 +207,7 @@ handover, and it caps how high Precision@50 can go.
 ## 11. Inference cost and latency
 
 Single-row `predict_proba` over 200 held-out rows, development
-machine, CPU only: median **3.14 ms**, p95 **3.57 ms**.
+machine, CPU only: median **3.99 ms**, p95 **4.4 ms**.
 Model inference is not the latency bottleneck; the network round trip and, for
 investigations, the LLM call dominate.
 

@@ -15,6 +15,16 @@ from pydantic import BaseModel, ConfigDict, Field
 RiskBand = Literal["low", "medium", "high"]
 
 
+class RiskFactor(BaseModel):
+    """One driver of a single order's score, from exact TreeSHAP."""
+
+    feature: str
+    label: str
+    direction: Literal["increases risk", "decreases risk"]
+    share: float = Field(description="Share of this order's total attribution.")
+    contribution: float = Field(description="Signed log-odds contribution.")
+
+
 class SnapshotSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -53,7 +63,13 @@ class OrderListItem(BaseModel):
     days_in_transit: float
     days_to_deadline: float
     is_overdue: bool
-    risk_probability: float
+    risk_probability: float = Field(
+        description="Calibrated estimate that this order misses its promised date."
+    )
+    ranking_score: float = Field(
+        description="Raw model output. The queue's sort key; finer resolution "
+                    "than the calibrated probability, not a probability itself."
+    )
     risk_band: RiskBand
     model_version: str
     customer_state: str | None = None
@@ -100,9 +116,21 @@ class OrderAsOf(BaseModel):
     seller_state: str | None
     is_cross_state: bool
 
-    risk_probability: float
+    risk_probability: float = Field(
+        description="Calibrated estimate that this order misses its promised date."
+    )
+    ranking_score: float
     risk_band: RiskBand
     model_version: str
+    calibrated: bool = Field(
+        default=True,
+        description="Whether risk_probability has been calibrated to observed "
+                    "frequencies. False means it is a ranking score only.",
+    )
+    risk_factors: list[RiskFactor] = Field(
+        default_factory=list,
+        description="What drove this order's score, from exact TreeSHAP.",
+    )
     prediction_as_of: datetime = Field(
         description="The moment the prediction refers to: carrier handover."
     )
@@ -117,11 +145,15 @@ class PredictionResponse(BaseModel):
     order_id: str
     snapshot_id: str
     risk_probability: float
+    ranking_score: float
     risk_band: RiskBand
     model_version: str
+    calibrated: bool = True
+    risk_factors: list[RiskFactor] = Field(default_factory=list)
     prediction_as_of: datetime
     computed_at: datetime
     disclaimer: str = (
         "Predicted at carrier handover from information available at that moment. "
-        "Not a live re-forecast and not a causal diagnosis."
+        "Not a live re-forecast and not a causal diagnosis: the factors shown are "
+        "what moved the model's score, not established causes of delay."
     )

@@ -450,3 +450,32 @@ tbody tr.clickable:hover { background: var(--surface-2); }
   .split { grid-template-columns: 1fr; }
   .main { padding: 1rem 0.85rem; }
 }
+
+/* ---------- per-order risk factors ---------- */
+
+.factor { margin-bottom: 0.55rem; }
+
+.factor__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.83rem;
+}
+.factor__label { color: var(--text-muted); }
+.factor__dir {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.factor__dir--up { color: var(--risk-high); }
+.factor__dir--down { color: var(--risk-low); }
+
+.factor__bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin-top: 0.2rem;
+}
+.factor__bar span { display: block; height: 100%; border-radius: 2px; }

@@ -51,6 +51,8 @@ def test_unknown_snapshot_returns_actionable_error(client):
 
 def test_orders_are_ranked_by_risk_descending(client):
     items = client.get(f"{API}/orders?snapshot_id=2018-08-15&limit=25").json()["items"]
+    # Calibration is monotonic, so ordering by the raw ranking score also
+    # leaves the calibrated probabilities non-increasing.
     risks = [i["risk_probability"] for i in items]
     assert risks == sorted(risks, reverse=True)
     assert all(0.0 <= r <= 1.0 for r in risks)
@@ -141,9 +143,49 @@ def test_prediction_matches_the_stored_queue_score(client, seeded_order):
     ).json()
 
     assert served["risk_probability"] == pytest.approx(listed["risk_probability"], abs=1e-4)
+    assert served["ranking_score"] == pytest.approx(listed["ranking_score"], abs=1e-5)
     assert served["model_version"] == listed["model_version"]
     assert served["risk_band"] == listed["risk_band"]
     assert "carrier handover" in served["disclaimer"].lower()
+
+
+def test_served_probability_is_calibrated_not_the_raw_score(client, seeded_order):
+    """The displayed number must be the calibrated one, not the raw output.
+
+    Before calibration a raw 0.65 corresponded to a ~2% observed late rate, so
+    serving the raw value as a probability was misleading.
+    """
+    order_id, snapshot_id = seeded_order
+    served = client.post(
+        f"{API}/predictions", json={"order_id": order_id, "snapshot_id": snapshot_id}
+    ).json()
+    assert served["calibrated"] is True
+    assert served["risk_probability"] != pytest.approx(served["ranking_score"], abs=1e-6)
+    assert 0.0 <= served["risk_probability"] <= 1.0
+
+
+def test_prediction_explains_itself(client, seeded_order):
+    """A served prediction says which inputs moved its score."""
+    order_id, snapshot_id = seeded_order
+    served = client.post(
+        f"{API}/predictions", json={"order_id": order_id, "snapshot_id": snapshot_id}
+    ).json()
+    factors = served["risk_factors"]
+    assert factors, "a served prediction should carry its attribution"
+    assert all(f["direction"] in ("increases risk", "decreases risk") for f in factors)
+    assert all(0.0 <= f["share"] <= 1.0 for f in factors)
+    # Labels are human-readable, not column names.
+    assert any(" " in f["label"] for f in factors)
+    # Ordered by importance.
+    shares = [f["share"] for f in factors]
+    assert shares == sorted(shares, reverse=True)
+
+
+def test_queue_is_ordered_by_the_raw_score_not_the_calibrated_one(client):
+    """Isotonic calibration creates ties; the raw score keeps the ranking exact."""
+    items = client.get(f"{API}/orders?snapshot_id=2018-08-15&limit=50").json()["items"]
+    ranks = [i["ranking_score"] for i in items]
+    assert ranks == sorted(ranks, reverse=True)
 
 
 def test_prediction_for_unknown_order_is_404(client):
@@ -178,7 +220,9 @@ def test_prediction_is_unavailable_not_fabricated_when_artifact_missing(
 def test_meta_exposes_versions_and_attribution(client):
     meta = client.get(f"{API}/meta").json()
     assert meta["model_version"]
-    assert meta["policy_version"] == "demo-policy-v1"
+    assert meta["policy_version"].startswith("demo-policy-")
+    assert meta["calibrated"] is True
+    assert meta["band_thresholds"]["high"] > meta["band_thresholds"]["medium"]
     assert "CC BY-NC-SA" in meta["dataset"]["license"]
 
 

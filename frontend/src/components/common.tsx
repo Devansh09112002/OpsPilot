@@ -6,17 +6,26 @@ export function RiskBadge({ band }: { band: RiskBand }) {
   return <span className={`badge badge--${band}`}>{band}</span>;
 }
 
-/** Risk score plus a proportional bar, so a queue is scannable at a glance. */
+/** Calibrated risk as a percentage, with a bar scaled so the useful range is
+ *  readable. Most calibrated estimates sit under 0.25, so scaling the bar to
+ *  the full 0-100% would render every row as a nearly-empty sliver. */
 export function RiskScore({ value, band }: { value: number; band: RiskBand }) {
   const colour = `var(--risk-${band})`;
+  const width = Math.min(100, Math.round((value / 0.4) * 100));
   return (
     <span className="risk-cell">
-      <span className="mono">{value.toFixed(3)}</span>
+      <span className="mono">{formatRisk(value)}</span>
       <span className="risk-bar" aria-hidden="true">
-        <span style={{ width: `${Math.round(value * 100)}%`, background: colour }} />
+        <span style={{ width: `${width}%`, background: colour }} />
       </span>
     </span>
   );
+}
+
+/** A calibrated probability, shown as a percentage a person can act on. */
+export function formatRisk(value: number): string {
+  if (value >= 0.095) return `${(value * 100).toFixed(0)}%`;
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 export function Spinner() {

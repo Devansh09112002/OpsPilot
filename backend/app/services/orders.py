@@ -113,8 +113,11 @@ def list_orders(
         select(func.count()).select_from(q.subquery())
     ).scalar_one()
 
+    # Sort on the raw ranking score, not the calibrated probability. Isotonic
+    # calibration creates ties; ordering by the tied values would silently
+    # change the ranking every published metric was measured on.
     order_by = {
-        "risk": SnapshotOrder.risk_probability.desc(),
+        "risk": SnapshotOrder.ranking_score.desc(),
         "deadline": OrderFeature.order_estimated_delivery_date.asc(),
         "handover": OrderFeature.order_delivered_carrier_date.desc(),
     }[sort]
@@ -134,6 +137,7 @@ def list_orders(
                 snap.snapshot_at, of.order_estimated_delivery_date),
             is_overdue=so.is_overdue,
             risk_probability=round(so.risk_probability, 4),
+            ranking_score=round(so.ranking_score, 6),
             risk_band=so.risk_band,
             model_version=so.model_version,
             customer_state=of.customer_state,
@@ -147,8 +151,14 @@ def list_orders(
     return OrderPage(items=items, total=total, limit=limit, offset=offset)
 
 
-def get_order_as_of(db: Session, order_id: str, snapshot_id: str) -> OrderAsOf:
-    """Approved as-of detail for one order. The only order DTO agents receive."""
+def get_order_as_of(
+    db: Session, order_id: str, snapshot_id: str, *, with_factors: bool = False
+) -> OrderAsOf:
+    """Approved as-of detail for one order. The only order DTO agents receive.
+
+    `with_factors` computes a per-order TreeSHAP attribution. It is off by
+    default because the list view would pay for it on every row.
+    """
     snap = get_snapshot(db, snapshot_id)
     row = db.execute(
         _base_query(snapshot_id).where(SnapshotOrder.order_id == order_id)
@@ -160,6 +170,19 @@ def get_order_as_of(db: Session, order_id: str, snapshot_id: str) -> OrderAsOf:
         )
     so, of = row
     f = of.features or {}
+
+    factors: list = []
+    calibrated = True
+    from app.ml.predictor import predictor
+
+    if predictor.available:
+        calibrated = predictor.calibrated
+        if with_factors:
+            try:
+                factors = predictor.predict_one(f, with_factors=True).factors
+            except Exception:
+                factors = []
+
     return OrderAsOf(
         order_id=of.order_id,
         snapshot_id=snapshot_id,
@@ -180,8 +203,11 @@ def get_order_as_of(db: Session, order_id: str, snapshot_id: str) -> OrderAsOf:
         seller_state=of.seller_state,
         is_cross_state=bool(f.get("is_cross_state")),
         risk_probability=round(so.risk_probability, 4),
+        ranking_score=round(so.ranking_score, 6),
         risk_band=so.risk_band,
         model_version=so.model_version,
+        calibrated=calibrated,
+        risk_factors=factors,
         prediction_as_of=of.order_delivered_carrier_date,
     )
 

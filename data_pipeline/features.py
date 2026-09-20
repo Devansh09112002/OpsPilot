@@ -289,3 +289,40 @@ def split_features_and_outcomes(
     if present:
         raise RuntimeError(f"as-of feature table still exposes outcome columns: {present}")
     return features, outcomes
+
+
+# Human-readable labels for the model's inputs. Used when a served prediction
+# explains itself, so the UI shows "days remaining before the promised date"
+# rather than a column name.
+FEATURE_LABELS: dict[str, str] = {
+    "days_handover_to_estimate": "days between carrier handover and the promised date",
+    "hours_purchase_to_handover": "hours from purchase to carrier handover",
+    "hours_approval_to_handover": "hours from payment approval to handover",
+    "hours_purchase_to_approval": "hours from purchase to payment approval",
+    "shipping_limit_slack_hours": "slack against the seller's shipping deadline",
+    "purchase_dow": "day of week the order was placed",
+    "purchase_hour": "hour of day the order was placed",
+    "handover_dow": "day of week of carrier handover",
+    "handover_month": "month of carrier handover",
+    "handover_week_of_year": "week of year of carrier handover",
+    "n_items": "number of items",
+    "n_distinct_products": "number of distinct products",
+    "n_distinct_sellers": "number of sellers involved",
+    "total_price": "total order value",
+    "total_freight": "total freight charged",
+    "max_item_price": "value of the most expensive item",
+    "freight_ratio": "freight as a share of order value",
+    "total_weight_g": "total weight",
+    "max_weight_g": "weight of the heaviest item",
+    "total_volume_cm3": "total volume",
+    "max_product_photos": "product listing photo count",
+    "is_cross_state": "whether the shipment crosses state lines",
+    "n_seller_states": "number of seller states involved",
+    "seller_prior_orders": "how many prior deliveries this seller had completed",
+    "seller_prior_late_rate": "this seller's prior late rate",
+    "route_prior_orders": "how many prior deliveries this route had completed",
+    "route_prior_late_rate": "this route's prior late rate",
+    "customer_state": "destination state",
+    "seller_state": "origin state",
+    "product_category": "product category",
+}

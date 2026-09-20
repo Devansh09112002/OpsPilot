@@ -16,9 +16,12 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-POLICY_PATH = Path(__file__).resolve().parents[3] / "policies" / "demo_policy_v1.json"
+POLICY_PATH = Path(__file__).resolve().parents[3] / "policies" / "demo_policy_v2.json"
 
-ESCALATION_RISK_THRESHOLD = 0.60
+# Stated on the model's CALIBRATED probability, so the number means what it
+# says. v1 used 0.60 on the raw output, where an observed late rate of ~2%
+# sat behind a 0.60 "score" - a threshold that read as strict and was not.
+ESCALATION_RISK_THRESHOLD = 0.15
 ESCALATION_SLACK_DAYS = 3
 
 
@@ -87,7 +90,7 @@ def applicable_sections(
     else:
         ids.append("ESC-03")
 
-    ids += ["EVI-01", "EVI-02", "ACT-01", "ACT-02"]
+    ids += ["EVI-01", "EVI-02", "EVI-03", "ACT-01", "ACT-02"]
     return [get_section(i) for i in ids]
 
 
@@ -107,17 +110,17 @@ def escalation_permitted(
         )
     if risk_probability < ESCALATION_RISK_THRESHOLD:
         return False, (
-            f"ESC-03: risk score {risk_probability:.2f} is below the "
-            f"{ESCALATION_RISK_THRESHOLD:.2f} escalation threshold."
+            f"ESC-03: calibrated risk estimate {risk_probability:.3f} is below "
+            f"the {ESCALATION_RISK_THRESHOLD:.2f} escalation threshold."
         )
     if days_to_deadline > ESCALATION_SLACK_DAYS:
         return False, (
-            f"ESC-02: risk score {risk_probability:.2f} meets the threshold but "
-            f"{days_to_deadline:.0f} days of slack remain, above the "
-            f"{ESCALATION_SLACK_DAYS}-day limit, so the order is monitored."
+            f"ESC-02: calibrated risk estimate {risk_probability:.3f} meets the "
+            f"threshold but {days_to_deadline:.0f} days of slack remain, above "
+            f"the {ESCALATION_SLACK_DAYS}-day limit, so the order is monitored."
         )
     return True, (
-        f"ESC-01: risk score {risk_probability:.2f} is at or above "
-        f"{ESCALATION_RISK_THRESHOLD:.2f} with {days_to_deadline:.0f} days remaining, "
-        f"within the {ESCALATION_SLACK_DAYS}-day escalation window."
+        f"ESC-01: calibrated risk estimate {risk_probability:.3f} is at or above "
+        f"{ESCALATION_RISK_THRESHOLD:.2f} with {days_to_deadline:.0f} days "
+        f"remaining, within the {ESCALATION_SLACK_DAYS}-day escalation window."
     )

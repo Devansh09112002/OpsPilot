@@ -63,7 +63,40 @@ def render(p: dict) -> str:
     served_sim = p["test_simulated"][sel]
     rule_sim = p["test_simulated"]["rule_deadline_proximity"]
     test_sel = p["test"][sel]
-    cal = test_sel.get("calibration", [])
+    calibration = p.get("calibration") or {}
+    # Prefer the calibrated reliability bins; fall back to the raw ones.
+    cal = calibration.get("calibration_bins") or test_sel.get("calibration", [])
+
+    if calibration:
+        raw_b = calibration["brier_raw_test"]
+        cal_b = calibration["brier_calibrated_test"]
+        bands = calibration.get("band_thresholds", {})
+        summary_tbl = _tbl(
+            [
+                ["Brier score (test)", f"{raw_b:.5f}", f"**{cal_b:.5f}**"],
+                ["mean predicted (test)",
+                 f"{calibration.get('mean_raw_test', float('nan')):.4f}",
+                 f"{calibration['mean_calibrated_test']:.4f}"],
+                ["observed base rate",
+                 f"{calibration['test_base_rate']:.4f}",
+                 f"{calibration['test_base_rate']:.4f}"],
+            ],
+            ["", "raw score", "calibrated"],
+        )
+        cal_summary = (
+            summary_tbl
+            + f"\n\nCalibration improves the Brier score "
+              f"**{raw_b / max(cal_b, 1e-9):.1f}x**, and the mean calibrated "
+              f"estimate ({calibration['mean_calibrated_test']:.4f}) now sits "
+              f"close to the observed base rate "
+              f"({calibration['test_base_rate']:.4f}).\n\n"
+              f"Risk bands are cut on the calibrated distribution rather than "
+              f"set by hand: **high** at {bands.get('high', 0):.4f} (the "
+              f"validation 95th percentile, roughly the review capacity), "
+              f"**medium** at {bands.get('medium', 0):.4f} (75th percentile)."
+        )
+    else:
+        cal_summary = "_Model is not calibrated._"
 
     cal_tbl = (
         _tbl([[f"{c['bin_low']:.1f}-{c['bin_high']:.1f}", f"{c['n']:,}",
@@ -209,11 +242,27 @@ are quoted, the simulated one is the honest one.
 
 ## 7. Calibration
 
+The raw model output is **not** a probability. `scale_pos_weight` rebalances
+the classes during training, which inflates every score: measured on held-out
+data, a raw 0.65 corresponded to a **2.4%** observed late rate, a 27x
+overstatement. Displaying that number to a person is misleading however
+carefully it is captioned.
+
+An isotonic regression fitted on the **validation** split maps the raw score to
+an estimated probability. Isotonic is monotonic, so the ranking is unchanged
+and every metric above still holds; the queue continues to sort on the raw
+score because calibration introduces ties.
+
+{cal_summary}
+
+Reliability of the **calibrated** estimate on the held-out test split:
+
 {cal_tbl}
 
-Scores are used for **ranking**, not as calibrated probabilities. Where predicted
-and observed rates diverge, the UI presents the value as a relative risk score
-carrying its model version.
+The calibrated value is what the product displays and what the demo policy's
+escalation threshold is stated on. `docs/api_contracts.md` returns both:
+`risk_probability` (calibrated, for reading) and `ranking_score` (raw, the
+sort key).
 
 ## 8. The three frozen demo snapshots
 

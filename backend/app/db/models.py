@@ -126,7 +126,13 @@ class SnapshotOrder(Base):
     )
     is_overdue: Mapped[bool] = mapped_column(Boolean)
     days_in_transit: Mapped[float] = mapped_column(Float)
+    # Calibrated estimate, the number a person reads.
     risk_probability: Mapped[float] = mapped_column(Float)
+    # Raw model output. The queue sorts on this because it has finer
+    # resolution: isotonic calibration creates ties, and sorting on the tied
+    # values alone would silently change the ordering every published ranking
+    # metric was measured on.
+    ranking_score: Mapped[float] = mapped_column(Float, server_default="0")
     risk_band: Mapped[str] = mapped_column(String(8))
     model_version: Mapped[str] = mapped_column(String(64))
 

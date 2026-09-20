@@ -161,6 +161,20 @@ def test_policy_tool_selects_escalation_section_deterministically():
     assert "ESC-01" in ids and "ACT-01" in ids
 
 
+def test_policy_threshold_is_stated_on_the_calibrated_scale():
+    """A threshold on the raw score meant nothing; 0.15 calibrated does."""
+    from app.services.policies import ESCALATION_RISK_THRESHOLD
+
+    assert ESCALATION_RISK_THRESHOLD == 0.15
+    # Just below the threshold must be refused, just above permitted.
+    below = agent_tools.get_demo_policy(
+        risk_probability=0.149, days_to_deadline=1, is_overdue=False)
+    above = agent_tools.get_demo_policy(
+        risk_probability=0.151, days_to_deadline=1, is_overdue=False)
+    assert below.data["escalation_permitted_by_policy"] is False
+    assert above.data["escalation_permitted_by_policy"] is True
+
+
 def test_policy_tool_blocks_escalation_when_slack_remains():
     result = agent_tools.get_demo_policy(
         risk_probability=0.9, days_to_deadline=10, is_overdue=False

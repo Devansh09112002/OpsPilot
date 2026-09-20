@@ -3,6 +3,15 @@
 
 export type RiskBand = "low" | "medium" | "high";
 
+/** One driver of a single order's score, from exact TreeSHAP. */
+export interface RiskFactor {
+  feature: string;
+  label: string;
+  direction: "increases risk" | "decreases risk";
+  share: number;
+  contribution: number;
+}
+
 export type Recommendation = "no_escalation" | "monitor" | "propose_escalation";
 
 export type InvestigationStatus =
@@ -43,7 +52,10 @@ export interface OrderListItem {
   days_in_transit: number;
   days_to_deadline: number;
   is_overdue: boolean;
+  /** Calibrated estimate that this order misses its promised date. */
   risk_probability: number;
+  /** Raw model output; the queue's sort key, not a probability. */
+  ranking_score: number;
   risk_band: RiskBand;
   model_version: string;
   customer_state: string | null;
@@ -80,8 +92,11 @@ export interface OrderAsOf {
   seller_state: string | null;
   is_cross_state: boolean;
   risk_probability: number;
+  ranking_score: number;
   risk_band: RiskBand;
   model_version: string;
+  calibrated: boolean;
+  risk_factors: RiskFactor[];
   prediction_as_of: string;
 }
 
@@ -171,6 +186,9 @@ export interface Meta {
   model_version: string | null;
   model_family: string | null;
   model_available: boolean;
+  calibrated: boolean;
+  calibration_method: string | null;
+  band_thresholds: { high: number; medium: number };
   training_cutoff: string | null;
   policy_version: string;
   llm_configured: boolean;

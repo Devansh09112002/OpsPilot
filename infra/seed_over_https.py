@@ -177,6 +177,56 @@ def _insert_rows(client: httpx.Client, ref: str, table: str,
     print(f"    {table}: {len(rows):,} rows inserted      ")
 
 
+def load_scores_only(client: httpx.Client, ref: str) -> None:
+    """Rewrite just the snapshot tables after a model change.
+
+    The 96k feature and outcome rows are derived from the frozen dataset and do
+    not change when the model does, so re-sending them over HTTPS would cost
+    twenty minutes for nothing.
+    """
+    from ml_pipeline.model import band_for, calibrate, load_artifact, predict_risk
+
+    features = pd.read_parquet(spec.PROCESSED_DIR / "order_features.parquet")
+    members = pd.read_parquet(spec.PROCESSED_DIR / "snapshot_members.parquet")
+    model, meta = load_artifact(spec.ARTIFACT_DIR)
+    calibrator = meta.get("_calibrator")
+    bands = meta.get("band_thresholds") or {"high": 0.60, "medium": 0.30}
+    model_version = meta["model_version"]
+    print(f"  rescoring with {model_version} (calibrated: {bool(calibrator)})")
+
+    scored = members.merge(features, on="order_id", how="inner", validate="many_to_one")
+    scored["ranking_score"] = predict_risk(model, scored)
+    scored["risk_probability"] = calibrate(calibrator, scored["ranking_score"])
+    scored["risk_band"] = [band_for(p, bands) for p in scored["risk_probability"]]
+
+    run_sql(client, ref, 'delete from "snapshot_orders";')
+    run_sql(client, ref, 'delete from "snapshots";')
+
+    snapshot_rows = []
+    for s in spec.SNAPSHOTS:
+        sub = scored[scored["snapshot_id"] == s["snapshot_id"]]
+        if sub.empty:
+            continue
+        snapshot_rows.append([
+            s["snapshot_id"], s["label"], pd.Timestamp(s["snapshot_id"]),
+            int(len(sub)), int((~sub["is_overdue"]).sum()), int(sub["is_overdue"].sum()),
+        ])
+    _insert_rows(client, ref, "snapshots",
+                 ["snapshot_id", "label", "snapshot_at", "orders_in_transit",
+                  "orders_pre_deadline", "orders_overdue"], snapshot_rows)
+
+    member_rows = [
+        [r.snapshot_id, r.order_id, bool(r.is_overdue), float(r.days_in_transit),
+         float(r.risk_probability), float(r.ranking_score), r.risk_band, model_version]
+        for r in scored.itertuples(index=False)
+    ]
+    _insert_rows(client, ref, "snapshot_orders",
+                 ["snapshot_id", "order_id", "is_overdue", "days_in_transit",
+                  "risk_probability", "ranking_score", "risk_band", "model_version"],
+                 member_rows)
+    run_sql(client, ref, "analyze;")
+
+
 def load_data(client: httpx.Client, ref: str) -> None:
     features = pd.read_parquet(spec.PROCESSED_DIR / "order_features.parquet")
     outcomes = pd.read_parquet(spec.PROCESSED_DIR / "order_outcomes.parquet")
@@ -247,12 +297,13 @@ def load_data(client: httpx.Client, ref: str) -> None:
 
     member_rows = [
         [r.snapshot_id, r.order_id, bool(r.is_overdue), float(r.days_in_transit),
-         float(r.risk_probability), r.risk_band, model_version]
+         float(r.risk_probability), float(r.ranking_score), r.risk_band, model_version]
         for r in scored.itertuples(index=False)
     ]
     _insert_rows(client, ref, "snapshot_orders",
                  ["snapshot_id", "order_id", "is_overdue", "days_in_transit",
-                  "risk_probability", "risk_band", "model_version"], member_rows)
+                  "risk_probability", "ranking_score", "risk_band", "model_version"],
+                 member_rows)
 
     run_sql(client, ref, "analyze;")
 
@@ -299,7 +350,8 @@ def verify(client: httpx.Client, ref: str) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["schema", "data", "verify", "all"])
+    parser.add_argument(
+        "command", choices=["schema", "data", "scores", "verify", "all"])
     args = parser.parse_args(argv)
 
     env = read_env()
@@ -311,6 +363,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command in ("data", "all"):
             print("[data]")
             load_data(client, ref)
+        if args.command == "scores":
+            print("[scores]")
+            load_scores_only(client, ref)
         if args.command in ("verify", "all"):
             print("[verify]")
             if not verify(client, ref):

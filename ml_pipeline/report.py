@@ -36,6 +36,14 @@ def per_snapshot_metrics(model, df: pd.DataFrame, k: int) -> dict:
     return out
 
 
+def calibration_table(y_true, scores, n_bins: int = 10) -> list[dict]:
+    """Reliability bins over whatever scores are passed in."""
+    from ml_pipeline.metrics import calibration_bins
+
+    return calibration_bins(np.asarray(y_true).astype(int), np.asarray(scores, dtype=float),
+                            n_bins=n_bins)
+
+
 def error_analysis(model, df: pd.DataFrame, k: int) -> dict:
     """Where the served model is wrong on the held-out test split."""
     te = df[df["split"] == "test"].copy()

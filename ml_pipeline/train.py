@@ -25,6 +25,9 @@ from ml_pipeline.model import (
     ModelMetadata,
     build_logistic_regression,
     build_xgboost,
+    calibrate,
+    derive_band_thresholds,
+    fit_calibrator,
     save_artifact,
 )
 from ml_pipeline.render import render as render_report
@@ -204,6 +207,39 @@ def main() -> int:
               f"lift={s[f'mean_lift_at_{K}']:.2f}x  "
               f"({s['n_snapshots']} snapshots){mark}")
 
+    # --- calibration, fitted on validation only ----------------------------
+    # The raw score remains the ranking key, so every ranking metric above is
+    # unaffected. The calibrated value is the one a human should read.
+    from sklearn.metrics import brier_score_loss
+
+    raw_val = final.predict_proba(X_va)[:, 1]
+    calibrator = fit_calibrator(raw_val, y_va)
+    cal_val = calibrate(calibrator, raw_val)
+    thresholds = derive_band_thresholds(cal_val)
+
+    raw_test = final.predict_proba(X_te)[:, 1]
+    cal_test = calibrate(calibrator, raw_test)
+    calibration_metrics = {
+        "method": "isotonic (fitted on validation)",
+        "brier_raw_test": round(float(brier_score_loss(y_te, raw_test)), 5),
+        "brier_calibrated_test": round(float(brier_score_loss(y_te, cal_test)), 5),
+        "test_base_rate": round(float(y_te.mean()), 5),
+        "mean_raw_test": round(float(raw_test.mean()), 5),
+        "mean_calibrated_test": round(float(cal_test.mean()), 5),
+        "band_thresholds": thresholds,
+        "calibration_bins": report_mod.calibration_table(y_te, cal_test),
+    }
+    improvement = (calibration_metrics["brier_raw_test"]
+                   / max(calibration_metrics["brier_calibrated_test"], 1e-9))
+    print()
+    print("--- calibration (isotonic, fitted on validation) ---")
+    print(f"  Brier on test: {calibration_metrics['brier_raw_test']:.5f} raw -> "
+          f"{calibration_metrics['brier_calibrated_test']:.5f} calibrated "
+          f"({improvement:.1f}x better)")
+    print(f"  mean calibrated score {cal_test.mean():.4f} vs base rate {y_te.mean():.4f}")
+    print(f"  band thresholds: high >= {thresholds['high']:.4f}, "
+          f"medium >= {thresholds['medium']:.4f}")
+
     per_snapshot = report_mod.per_snapshot_metrics(final, df, K)
 
     version = f"{best}-{datetime.now(UTC):%Y%m%d}"
@@ -221,12 +257,16 @@ def main() -> int:
         selection_rationale=rationale,
         validation_metrics={"pooled": validation, "simulated": val_sim},
         test_metrics={"pooled": test, "simulated": test_sim},
+        calibrated=True,
+        calibration_method="isotonic",
+        band_thresholds=thresholds,
+        calibration_metrics=calibration_metrics,
     )
     from data_pipeline.features import CATEGORICAL_FEATURES, NUMERIC_FEATURES
     meta.numeric_features = list(NUMERIC_FEATURES)
     meta.categorical_features = list(CATEGORICAL_FEATURES)
 
-    path = save_artifact(final, meta, spec.ARTIFACT_DIR)
+    path = save_artifact(final, meta, spec.ARTIFACT_DIR, calibrator=calibrator)
     print(f"\nartifact: {path}  sha256={meta.artifact_sha256[:16]}  version={version}")
 
     errors = report_mod.error_analysis(final, df, K)
@@ -245,6 +285,7 @@ def main() -> int:
         "errors": errors,
         "importances": importances,
         "latency_ms": latency,
+        "calibration": calibration_metrics,
         "k": K,
         "splits": {
             "train": {"n": int(len(y_tr)), "base_rate": float(y_tr.mean())},

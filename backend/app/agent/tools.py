@@ -143,30 +143,32 @@ def get_delivery_prediction(db: Session, order_id: str, snapshot_id: str) -> Too
     try:
         feature_row = orders.get_feature_row(db, order_id)
         order = orders.get_order_as_of(db, order_id, snapshot_id)
-        probability = predictor.predict_one(feature_row.features or {})
+        prediction = predictor.predict_one(feature_row.features or {}, with_factors=True)
     except Exception as exc:
         return ToolResult("get_delivery_prediction", ok=False,
                           error=_safe_error(exc, "The model prediction"))
 
-    from app.ml.predictor import risk_band
-
     data = {
         "order_id": order_id,
-        "risk_probability": round(probability, 4),
-        "risk_band": risk_band(probability),
+        "risk_probability": round(prediction.probability, 4),
+        "risk_band": prediction.band,
+        "calibrated": prediction.calibrated,
         "model_version": predictor.model_version,
         "prediction_as_of": order.order_delivered_carrier_date.isoformat(),
+        "risk_factors": prediction.factors,
         "interpretation": (
-            "A relative risk score used to rank orders for review. It is not a "
-            "calibrated probability and it does not explain why an order may be late."
+            "A calibrated estimate of the chance this order misses its promised "
+            "date, fitted on held-out validation data. The listed factors are "
+            "attributions of the model's own score for this order, not "
+            "established causes of delay."
         ),
     }
     evidence = [
         EvidenceItem(
             evidence_id="prediction.risk_probability",
             source="get_delivery_prediction",
-            label="Model risk score",
-            value=f"{probability:.4f}",
+            label="Calibrated risk estimate",
+            value=f"{prediction.probability:.4f}",
         ),
         EvidenceItem(
             evidence_id="prediction.model_version",
@@ -181,6 +183,16 @@ def get_delivery_prediction(db: Session, order_id: str, snapshot_id: str) -> Too
             value=order.order_delivered_carrier_date.isoformat(sep=" ", timespec="minutes"),
         ),
     ]
+    # Each factor becomes its own citable evidence item, so the agent can
+    # reference one without being able to invent it.
+    for i, factor in enumerate(prediction.factors, start=1):
+        evidence.append(EvidenceItem(
+            evidence_id=f"prediction.factor_{i}",
+            source="get_delivery_prediction",
+            label=f"Risk factor {i}: {factor['label']}",
+            value=(f"{factor['direction']} "
+                   f"({factor['share']:.0%} of this order's attribution)"),
+        ))
     return ToolResult("get_delivery_prediction", ok=True, data=data, evidence=evidence)
 
 

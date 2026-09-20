@@ -19,6 +19,7 @@ import {
   formatDate,
   formatDateTime,
   formatBRL,
+  formatRisk,
 } from "../components/common";
 import { ApiError, api } from "../lib/api";
 import type { Investigation, OrderAsOf } from "../types";
@@ -154,14 +155,59 @@ export default function OrderInvestigation() {
               )}
             </div>
             <div style={{ fontSize: "2.4rem", fontWeight: 650, lineHeight: 1.1 }}>
-              {order.risk_probability.toFixed(3)}
+              {formatRisk(order.risk_probability)}
             </div>
             <p className="faint small" style={{ marginTop: "0.4rem" }}>
-              Relative risk of missing the promised date, predicted at carrier
-              handover on {formatDateTime(order.prediction_as_of)} by model{" "}
-              <code>{order.model_version}</code>. Used for ranking, not as a
-              calibrated probability, and not a diagnosis of a cause.
+              {order.calibrated ? "Calibrated estimate" : "Uncalibrated score"} that
+              this order misses its promised date, predicted at carrier handover
+              on {formatDateTime(order.prediction_as_of)} by model{" "}
+              <code>{order.model_version}</code>
+              {order.calibrated && (
+                <> against a marketplace baseline near 3%</>
+              )}
+              . Not a diagnosis of a cause.
             </p>
+
+            {order.risk_factors.length > 0 && (
+              <div style={{ marginTop: "1rem" }}>
+                <h3 className="faint" style={{ marginBottom: "0.5rem" }}>
+                  What moved this score
+                </h3>
+                {order.risk_factors.map((f) => (
+                  <div className="factor" key={f.feature}>
+                    <div className="factor__row">
+                      <span className="factor__label">{f.label}</span>
+                      <span
+                        className={
+                          f.direction === "increases risk"
+                            ? "factor__dir factor__dir--up"
+                            : "factor__dir factor__dir--down"
+                        }
+                      >
+                        {f.direction === "increases risk" ? "▲" : "▼"}{" "}
+                        {(f.share * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="factor__bar" aria-hidden="true">
+                      <span
+                        style={{
+                          width: `${Math.round(f.share * 100)}%`,
+                          background:
+                            f.direction === "increases risk"
+                              ? "var(--risk-high)"
+                              : "var(--risk-low)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <p className="faint small" style={{ marginTop: "0.6rem", marginBottom: 0 }}>
+                  Exact attribution of this order's score to its inputs
+                  (TreeSHAP). These are what moved the model, not established
+                  causes of delay.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="card">

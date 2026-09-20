@@ -32,14 +32,16 @@ test.describe("Risk queue", () => {
     await expect(snapshot.locator("option").first()).toBeAttached();
     expect(await snapshot.locator("option").count()).toBeGreaterThanOrEqual(1);
 
-    // Scores must be real numbers in [0,1], ranked descending.
+    // Displayed risk is a calibrated percentage, ranked descending.
     const scores = await page
       .getByTestId("order-row")
       .locator("td:nth-child(2) .mono")
       .allTextContents();
-    const values = scores.map(Number);
-    expect(values.every((v) => v >= 0 && v <= 1)).toBeTruthy();
+    const values = scores.map((t) => Number(t.replace("%", "")));
+    expect(values.every((v) => Number.isFinite(v) && v >= 0 && v <= 100)).toBeTruthy();
     expect([...values].sort((a, b) => b - a)).toEqual(values);
+    // Every displayed figure is a percentage, not a raw model output.
+    expect(scores.every((t) => t.trim().endsWith("%"))).toBeTruthy();
 
     // The model version is displayed, so no number is unattributed.
     await expect(page.locator("text=/xgboost|logistic_regression|rule_/").first()).toBeVisible();
@@ -71,7 +73,12 @@ test.describe("Risk queue", () => {
     const first = await page.getByTestId("order-row").first().getAttribute("data-order-id");
 
     await page.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByTestId("order-row").first()).toBeVisible();
+    // Wait for the URL to advance before reading rows: otherwise the previous
+    // page's rows are still mounted and the assertion races the refetch.
+    await page.waitForURL(/offset=/);
+    await expect(
+      page.getByTestId("order-row").first().and(page.locator(`:not([data-order-id="${first}"])`)),
+    ).toBeVisible();
     const second = await page.getByTestId("order-row").first().getAttribute("data-order-id");
 
     expect(second).not.toEqual(first);
@@ -94,8 +101,12 @@ test.describe("Order detail", () => {
     await page.getByTestId("order-row").first().click();
 
     await expect(page.getByRole("heading", { name: "Model assessment" })).toBeVisible();
-    await expect(page.locator("text=/predicted at carrier handover/i")).toBeVisible();
+    await expect(page.locator("text=/at carrier handover/i").first()).toBeVisible();
     await expect(page.getByTestId("investigate")).toBeVisible();
+
+    // The score explains itself, and says the drivers are not causes.
+    await expect(page.getByRole("heading", { name: "What moved this score" })).toBeVisible();
+    await expect(page.locator("text=/not established.*causes/i")).toBeVisible();
 
     const body = (await page.locator("body").innerText()).toLowerCase();
     expect(body).not.toContain("delivered_customer");

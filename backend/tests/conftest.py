@@ -79,7 +79,7 @@ def _seed(engine) -> None:
         members = src.execute(
             select(SnapshotOrder)
             .where(SnapshotOrder.snapshot_id == SEED_SNAPSHOT)
-            .order_by(SnapshotOrder.risk_probability.desc())
+            .order_by(SnapshotOrder.ranking_score.desc())
             .limit(SEED_ORDERS)
         ).scalars().all()
         order_ids = [m.order_id for m in members]
@@ -131,7 +131,9 @@ def _seed(engine) -> None:
             dst.add(SnapshotOrder(
                 snapshot_id=m.snapshot_id, order_id=m.order_id,
                 is_overdue=m.is_overdue, days_in_transit=m.days_in_transit,
-                risk_probability=m.risk_probability, risk_band=m.risk_band,
+                risk_probability=m.risk_probability,
+                ranking_score=m.ranking_score,
+                risk_band=m.risk_band,
                 model_version=m.model_version,
             ))
         dst.commit()
@@ -217,7 +219,7 @@ def seeded_order(db) -> tuple[str, str]:
             SnapshotOrder.snapshot_id == SEED_SNAPSHOT,
             SnapshotOrder.is_overdue.is_(False),
         )
-        .order_by(SnapshotOrder.risk_probability.desc())
+        .order_by(SnapshotOrder.ranking_score.desc())
         .limit(1)
     ).scalar_one()
     return row.order_id, row.snapshot_id
