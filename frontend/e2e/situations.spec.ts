@@ -171,3 +171,44 @@ test.describe("AI lane investigation", () => {
     expect(await cites.count()).toBeGreaterThan(0);
   });
 });
+
+test.describe("Accessibility and empty states", () => {
+  test("the queue and the lane list are reachable by keyboard", async ({ page }) => {
+    // A row click is a mouse convenience. Without a real link in the row the
+    // application's primary navigation is unusable without a pointer.
+    await page.goto("/situations");
+    await expect(page.getByTestId("situation-row").first()).toBeVisible();
+    const laneLink = page.getByTestId("situation-row").first().getByRole("link");
+    await expect(laneLink).toBeVisible();
+    await laneLink.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("situation-detail-stats")).toBeVisible();
+
+    await page.goto("/");
+    await expect(page.getByTestId("order-row").first()).toBeVisible();
+    const orderLink = page.getByTestId("order-row").first().getByRole("link");
+    await orderLink.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("text=/Predicted at carrier handover/i").first()).toBeVisible();
+  });
+
+  test("the risk queue points at the lane view", async ({ page }) => {
+    await page.goto("/");
+    const hint = page.getByTestId("situations-hint");
+    await expect(hint).toBeVisible();
+    await hint.getByRole("link").click();
+    await expect(page.getByRole("heading", { name: "Lane situations" })).toBeVisible();
+  });
+
+  test("a snapshot with no lane clusters says so rather than showing nothing", async ({
+    page,
+  }) => {
+    // Drive the empty state through the API contract rather than hoping a
+    // snapshot happens to be empty.
+    await page.route("**/situations?*", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+    );
+    await page.goto("/situations");
+    await expect(page.locator("text=/No lane situations/i")).toBeVisible();
+  });
+});

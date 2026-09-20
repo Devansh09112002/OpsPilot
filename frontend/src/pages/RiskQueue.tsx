@@ -280,7 +280,17 @@ export default function RiskQueue() {
                         navigate(`/orders/${o.order_id}?snapshot=${o.snapshot_id}`)
                       }
                     >
-                      <td className="mono">{shortId(o.order_id, 12)}</td>
+                      <td className="mono">
+                        {/* A real link, not just a row click: the row handler
+                            is a mouse convenience, and on its own it left the
+                            queue unreachable by keyboard. */}
+                        <Link
+                          to={`/orders/${o.order_id}?snapshot=${o.snapshot_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {shortId(o.order_id, 12)}
+                        </Link>
+                      </td>
                       <td className="num">
                         <RiskScore value={o.risk_probability} band={o.risk_band} />
                       </td>

@@ -47,12 +47,29 @@ Ticked only when run and inspected, not when written.
 - [x] README, architecture, deployment, API docs
 - [x] Supabase project created and seeded (95,952 + 95,952 + 3 + 3,955 rows)
 - [x] Render services deployed on the free plan
-- [x] E2E suite green against the deployed URLs (12/12)
+- [x] E2E suite green against the deployed URLs
 - [x] Deployed smoke test green (37/37)
 - [x] Public URL recorded in the README
 - [x] Keepalive configured against the live API
 - [ ] **Gemini key rotated** — it came through a chat transcript
 - [ ] Repository made public (optional; currently private by choice)
+
+## Stage 5 — Lane situations (v2)
+- [x] Premises measured before building: seller risk does **not** persist
+      (rho +0.105, p 0.13), so no seller leaderboard; lane concentration does
+- [x] Situation grouping, ranked by expected late orders
+- [x] As-of lane history, with its weak-persistence caveat stated
+- [x] ESC-05 composes ESC-01; one risk threshold in the system
+- [x] Situation investigation graph, sharing the verification gate
+- [x] Membership grounding: a report may not cite a foreign order
+- [x] Deterministic briefs, zero provider calls
+- [x] One escalation covering N orders, member ids recorded on the ticket
+- [x] One open escalation per subject enforced at approval
+- [x] Situations and lane-detail screens, keyboard reachable
+- [x] 33 situation tests; 11 situation E2E journeys
+- [x] Agent benchmark extended (68/69, held-out 36/36)
+- [x] Migration applied to the deployed database ahead of the code
+- [x] Verified on the public URL (37/37 smoke, 20 browser journeys)
 
 ## Release blockers still open
 - **Rotate the Gemini API key** before sharing the demo. Create a new key,

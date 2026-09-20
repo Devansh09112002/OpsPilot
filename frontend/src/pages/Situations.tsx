@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { EmptyState, ErrorState, TableSkeleton, formatRisk } from "../components/common";
 import { ApiError, api } from "../lib/api";
@@ -157,7 +157,14 @@ export default function Situations() {
                   onClick={() => navigate(`/situations/${encodeURIComponent(r.situation_id)}`)}
                 >
                   <td>
-                    <strong>{r.lane}</strong>
+                    {/* Keyboard-reachable on its own; the row click is a
+                        mouse convenience layered on top. */}
+                    <Link
+                      to={`/situations/${encodeURIComponent(r.situation_id)}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <strong>{r.lane}</strong>
+                    </Link>
                     <div className="muted small">{r.situation_id}</div>
                   </td>
                   <td className="num">
@@ -190,12 +197,21 @@ export default function Situations() {
         </div>
       )}
 
-      <p className="muted small" style={{ marginTop: "1rem", maxWidth: "70ch" }}>
-        <strong>Expected late</strong> is the sum of the member orders&rsquo;
-        calibrated probabilities &mdash; how many of them the model expects to
-        miss the promised date. It describes where risk sits in this snapshot.
-        It is not a judgement about how a lane performs over time.
-      </p>
+      <div className="muted small" style={{ marginTop: "1rem", maxWidth: "72ch" }}>
+        <p>
+          <strong>Expected late</strong> is the sum of the member orders&rsquo;
+          calibrated probabilities &mdash; how many of them the model expects to
+          miss the promised date. It describes where risk sits in this snapshot.
+          It is not a judgement about how a lane performs over time.
+        </p>
+        <p>
+          <strong>High</strong> counts orders whose risk clears the escalation
+          threshold. <strong>Qualify</strong> is smaller because escalation also
+          requires three days or less before the promised date (ESC-01); a
+          high-risk order with a week of slack is monitored, not escalated. A
+          lane needs three qualifying orders before it can be escalated as one.
+        </p>
+      </div>
     </section>
   );
 }
