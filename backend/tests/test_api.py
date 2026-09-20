@@ -189,3 +189,34 @@ def test_no_secret_is_ever_returned_by_the_api(client):
         text = client.get(f"{API}{path}").text
         assert "sk-ant" not in text
         assert "llm_api_key" not in text.lower()
+
+
+# ---------------------------------------------------------------------------
+# Connection settings for a pooled (Supabase) database
+# ---------------------------------------------------------------------------
+
+def test_pooled_dsn_disables_prepared_statements():
+    """A transaction-mode pooler breaks psycopg3's prepared statements.
+
+    Without this, queries fail intermittently with "prepared statement does
+    not exist" once more than one backend is in play - a bug that only shows
+    up under production traffic.
+    """
+    from app.db.session import _engine_kwargs, _is_pooled
+
+    pooled = "postgresql+psycopg://u:p@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
+    assert _is_pooled(pooled)
+    kwargs = _engine_kwargs(pooled)
+    assert kwargs["connect_args"]["prepare_threshold"] is None
+    # A free-tier project cannot spare many connections.
+    assert kwargs["pool_size"] <= 3
+    assert kwargs["pool_recycle"] < 300
+
+
+def test_direct_dsn_keeps_normal_pooling():
+    from app.db.session import _engine_kwargs, _is_pooled
+
+    direct = "postgresql+psycopg://u:p@127.0.0.1:5432/opspilot"
+    assert not _is_pooled(direct)
+    kwargs = _engine_kwargs(direct)
+    assert "connect_args" not in kwargs
