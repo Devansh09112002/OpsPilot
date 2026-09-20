@@ -59,7 +59,10 @@ class ProposalOut(BaseModel):
 
     proposal_id: str
     investigation_id: str
-    order_id: str
+    subject_type: str = "order"
+    subject_id: str = ""
+    order_id: str | None = None
+    member_order_ids: list[str] | None = None
     snapshot_id: str
     status: ProposalStatusLiteral
     action_type: str
@@ -72,7 +75,13 @@ class InvestigationOut(BaseModel):
     """The full response contract for an investigation."""
 
     investigation_id: str
-    order_id: str
+    subject_type: str = "order"
+    subject_id: str = ""
+    # "model" or "deterministic". A reader is entitled to know whether the
+    # prose in front of them was generated or assembled.
+    generated_by: str = "model"
+    situation: dict | None = None
+    order_id: str | None = None
     snapshot_id: str
     status: InvestigationStatusLiteral
 
@@ -112,7 +121,10 @@ class TicketOut(BaseModel):
     ticket_id: str
     proposal_id: str
     investigation_id: str
-    order_id: str
+    subject_type: str = "order"
+    subject_id: str = ""
+    order_id: str | None = None
+    member_order_ids: list[str] | None = None
     snapshot_id: str
     status: str
     action_type: str

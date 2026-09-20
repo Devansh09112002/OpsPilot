@@ -289,6 +289,48 @@ def start_investigation(
     return investigation_service.to_schema(db, inv)
 
 
+@router.post(
+    "/situations/{situation_id}/investigations",
+    response_model=InvestigationOut,
+    tags=["agent"],
+    summary="Investigate one lane situation",
+)
+def start_situation_investigation(
+    situation_id: str,
+    request: Request,
+    mode: Literal["llm", "deterministic"] = Query(
+        "llm",
+        description=(
+            "'deterministic' assembles the brief from tool results with no "
+            "provider call. The LLM path falls back to it automatically when "
+            "the provider is unavailable or out of free-tier quota."
+        ),
+    ),
+    _: None = Depends(rate_limit),
+    db: Session = Depends(get_db),
+    session: GuestSession = Depends(get_guest_session),
+) -> InvestigationOut:
+    # The situation must exist before any budget is spent on it.
+    situation_service.get_situation(db, situation_id)
+
+    if mode == "llm":
+        enforce_investigation_budget(db, session)
+    started = datetime.now(UTC)
+    investigation = investigation_service.run_situation_and_persist(
+        db, session_id=session.session_id, situation_id=situation_id, mode=mode
+    )
+    if mode == "llm":
+        record_investigation_spend(db, session)
+    log.info(
+        "situation_investigation_request",
+        request_id=getattr(request.state, "request_id", None),
+        situation_id=situation_id,
+        status=investigation.status.value,
+        duration_ms=int((datetime.now(UTC) - started).total_seconds() * 1000),
+    )
+    return investigation_service.to_schema(db, investigation)
+
+
 @router.get("/investigations/{investigation_id}", response_model=InvestigationOut, tags=["agent"])
 def get_investigation(
     investigation_id: str,
