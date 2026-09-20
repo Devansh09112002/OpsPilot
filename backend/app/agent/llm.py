@@ -75,10 +75,18 @@ def get_client() -> genai.Client:
     return _client
 
 
+# Models that answered 400 to a thinking budget. Discovering this costs a
+# wasted request, and on a 20-request daily quota paying that on every call
+# would halve the usable budget - so it is remembered for the process
+# lifetime and the budget is simply not sent to those models again.
+_NO_THINKING: set[str] = set()
+
+
 def reset_client() -> None:
     """Drop the cached client. Used by tests that swap settings."""
     global _client
     _client = None
+    _NO_THINKING.clear()
 
 
 def _build_config(settings) -> genai_types.GenerateContentConfig:
@@ -169,6 +177,9 @@ class _TryNext(Exception):
 
 def _call_one(client, model: str, config, user_prompt: str, *, allow_retry=True):
     """One attempt against one model. Raises `_TryNext` on 429/404/5xx."""
+    if model in _NO_THINKING and config.thinking_config is not None:
+        config = config.model_copy(update={"thinking_config": None})
+        allow_retry = False
     try:
         return client.models.generate_content(
             model=model, contents=user_prompt, config=config
@@ -180,6 +191,7 @@ def _call_one(client, model: str, config, user_prompt: str, *, allow_retry=True)
         # giving up on an otherwise working model.
         if status == 400 and allow_retry and config.thinking_config is not None:
             log.info("llm_retry_without_thinking", model=model)
+            _NO_THINKING.add(model)
             retry = config.model_copy(update={"thinking_config": None})
             return _call_one(client, model, retry, user_prompt, allow_retry=False)
         if status == 429:

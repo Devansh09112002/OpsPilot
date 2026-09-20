@@ -352,3 +352,33 @@ def test_credentials_failure_does_not_walk_the_chain(with_key, monkeypatch):
     with pytest.raises(LLMUnavailableError, match="credentials"):
         generate_report("sys", "user")
     assert tried == ["a"], "a credentials failure must not retry other models"
+
+
+def test_thinking_rejection_is_remembered_so_quota_is_not_wasted(with_key, monkeypatch):
+    """Discovering the rejection costs a request; paying it twice halves quota."""
+    monkeypatch.setattr(with_key, "llm_model", "picky-model", raising=False)
+    monkeypatch.setattr(with_key, "llm_model_fallbacks", "", raising=False)
+    monkeypatch.setattr(with_key, "llm_thinking_budget", 0, raising=False)
+    llm_module._NO_THINKING.clear()
+    attempts: list[bool] = []
+
+    def generate_content(*, model, contents, config):
+        has_thinking = config.thinking_config is not None
+        attempts.append(has_thinking)
+        if has_thinking:
+            raise _bad_request()
+        return _response(parsed=InvestigationReport.model_validate(VALID))
+
+    monkeypatch.setattr(
+        llm_module, "get_client",
+        lambda: SimpleNamespace(models=SimpleNamespace(generate_content=generate_content)),
+    )
+
+    generate_report("sys", "user")   # discovers it: 2 requests
+    generate_report("sys", "user")   # should now cost 1
+    generate_report("sys", "user")   # and 1
+
+    assert attempts == [True, False, False, False], (
+        "the thinking budget must not be re-sent to a model known to reject it"
+    )
+    llm_module._NO_THINKING.clear()
