@@ -429,3 +429,59 @@ def test_a_deterministic_brief_does_not_spend_provider_budget(client, db):
     db.expire_all()
     after = db.execute(select(GuestSession)).scalars().first()
     assert after.investigations_today == spent_before
+
+
+def test_a_second_escalation_for_the_same_lane_is_refused(client, db):
+    """One open escalation per subject.
+
+    Proposal-level idempotency stops a double click producing two tickets. It
+    does not stop two separate investigations of the same lane each producing
+    one, which would raise two carrier escalations covering the same orders.
+    """
+    situation = None
+    for candidate in situations.list_situations(db, SNAPSHOT, limit=20):
+        permitted, _ = policies.situation_escalation_permitted(
+            n_escalatable=candidate.n_escalatable, n_flagged=candidate.n_flagged
+        )
+        if permitted:
+            situation = candidate
+            break
+    if situation is None:
+        pytest.skip("no escalatable lane in the seeded slice")
+
+    path = f"/api/v1/situations/{situation.situation_id}/investigations?mode=deterministic"
+    first = client.post(path).json()
+    second = client.post(path).json()
+    assert first["proposal"]["proposal_id"] != second["proposal"]["proposal_id"]
+
+    approved = client.post(f"/api/v1/proposals/{first['proposal']['proposal_id']}/approve")
+    assert approved.status_code == 200
+    ticket_id = approved.json()["ticket"]["ticket_id"]
+
+    refused = client.post(f"/api/v1/proposals/{second['proposal']['proposal_id']}/approve")
+    assert refused.status_code == 409
+    body = refused.json()
+    assert ticket_id in json.dumps(body)
+    assert client.get("/api/v1/tickets").json()["total"] == 1
+
+
+def test_a_different_lane_can_still_be_escalated(client, db):
+    """The duplicate rule is per subject, not a global one-ticket limit."""
+    escalatable = []
+    for candidate in situations.list_situations(db, SNAPSHOT, limit=20):
+        permitted, _ = policies.situation_escalation_permitted(
+            n_escalatable=candidate.n_escalatable, n_flagged=candidate.n_flagged
+        )
+        if permitted:
+            escalatable.append(candidate)
+    if len(escalatable) < 2:
+        pytest.skip("need two escalatable lanes in the seeded slice")
+
+    for candidate in escalatable[:2]:
+        body = client.post(
+            f"/api/v1/situations/{candidate.situation_id}/investigations?mode=deterministic"
+        ).json()
+        assert client.post(
+            f"/api/v1/proposals/{body['proposal']['proposal_id']}/approve"
+        ).status_code == 200
+    assert client.get("/api/v1/tickets").json()["total"] == 2

@@ -8,6 +8,7 @@ import {
   ErrorState,
   Spinner,
   formatDateTime,
+  formatRisk,
   shortId,
 } from "../components/common";
 import { ApiError, api } from "../lib/api";
@@ -90,7 +91,7 @@ export default function Tickets() {
                 <th>Status</th>
                 <th>Action</th>
                 <th>Reason</th>
-                <th className="num">Risk at handover</th>
+                <th className="num">Risk</th>
                 <th>Created</th>
               </tr>
             </thead>
@@ -123,7 +124,10 @@ export default function Tickets() {
                   <td className="muted">{t.action_type.replace(/_/g, " ")}</td>
                   <td style={{ whiteSpace: "normal", maxWidth: "26rem" }}>{t.reason}</td>
                   <td className="num mono">
-                    {t.risk_probability != null ? t.risk_probability.toFixed(3) : "--"}
+                    {t.risk_probability != null ? formatRisk(t.risk_probability) : "--"}
+                    <div className="muted small">
+                      {t.subject_type === "situation" ? "mean of lane" : "at handover"}
+                    </div>
                   </td>
                   <td>{formatDateTime(t.created_at)}</td>
                 </tr>

@@ -125,6 +125,34 @@ def approve_proposal(db: Session, proposal_id: str, session_id: str) -> Decision
             {"proposal_id": proposal_id},
         )
 
+    # One open escalation per subject. Idempotency on `proposal_id` stops a
+    # double click producing two tickets, but it does not stop two separate
+    # investigations of the same order or lane each producing one. For a lane
+    # that means two carrier escalations covering the same 107 orders, which
+    # is a real duplicated action rather than a cosmetic one.
+    duplicate = db.execute(
+        select(Ticket).where(
+            Ticket.session_id == session_id,
+            Ticket.subject_type == proposal.subject_type,
+            Ticket.subject_id == proposal.subject_id,
+            Ticket.status == "open",
+        )
+    ).scalars().first()
+    if duplicate is not None:
+        subject = (
+            f"lane {proposal.subject_id}" if proposal.subject_type == "situation"
+            else f"order {proposal.subject_id}"
+        )
+        raise ConflictError(
+            f"An escalation for {subject} is already open (ticket "
+            f"{duplicate.ticket_id}). Close it before raising another.",
+            {
+                "proposal_id": proposal_id,
+                "existing_ticket_id": duplicate.ticket_id,
+                "subject_id": proposal.subject_id,
+            },
+        )
+
     ticket = Ticket(
         ticket_id=new_id("tkt"),
         proposal_id=proposal.proposal_id,
@@ -156,8 +184,12 @@ def approve_proposal(db: Session, proposal_id: str, session_id: str) -> Decision
         subject_id=proposal.proposal_id,
         detail={
             "ticket_id": ticket.ticket_id,
-            "order_id": proposal.order_id,
+            # Named by subject rather than by order id, which is null for a
+            # lane and made the audit line read as missing data.
+            "subject_type": proposal.subject_type,
+            "subject_id": proposal.subject_id,
             "action_type": proposal.action_type,
+            "orders_covered": len(proposal.member_order_ids or []),
         },
     )
 
@@ -216,7 +248,10 @@ def reject_proposal(db: Session, proposal_id: str, session_id: str) -> DecisionR
         event_type="proposal_rejected",
         subject_type="proposal",
         subject_id=proposal.proposal_id,
-        detail={"order_id": proposal.order_id},
+        detail={
+            "subject_type": proposal.subject_type,
+            "subject_id": proposal.subject_id,
+        },
     )
     db.commit()
     log.info("proposal_rejected", proposal_id=proposal.proposal_id)

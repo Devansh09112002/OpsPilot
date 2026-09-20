@@ -1,8 +1,8 @@
 # OpsPilot — Delivery Risk & AI Investigation Workbench
 
 Real historical e-commerce orders, a trained delivery-delay model, and a
-bounded tool-using agent that investigates one order and proposes an
-escalation a human must approve.
+bounded tool-using agent that investigates a delivery risk — one order, or a
+whole shipping lane — and proposes an escalation a human must approve.
 
 **Live demo: https://opspilot-web-hj6k.onrender.com**
 
@@ -19,19 +19,38 @@ escalation a human must approve.
 ## What this is
 
 An operations team cannot investigate every order in transit. OpsPilot ranks
-the orders most likely to miss their promised delivery date, and for any one of
-them runs an evidence-grounded investigation that ends in a decision a person
-makes, not the model.
+the orders most likely to miss their promised delivery date, and runs an
+evidence-grounded investigation that ends in a decision a person makes, not
+the model.
 
-The journey a visitor completes:
+It does that at two scales, because one of them does not survive contact with
+the numbers. A snapshot flags **395 orders**, and the free provider tier allows
+roughly **100 investigations a day**. Reviewing one order at a time is not a
+workflow. Grouped by shipping lane, those 395 orders are **37 lanes, five of
+which hold 73% of them** — and a lane is what you actually escalate to a
+carrier.
 
-**Risk queue → open an order → Investigate with AI → approve or reject → ticket**
+The two journeys a visitor can complete:
+
+**Risk queue → open an order → Investigate → approve or reject → ticket**
+
+**Situations → open a lane → Investigate → approve once for every order on it → ticket**
+
+A lane situation is ranked by **expected late orders**: the sum of its members'
+calibrated probabilities, or how many of them the model expects to arrive late.
+That sum only means something because the scores are calibrated; adding up raw
+model output would give a number with no units.
+
+Every situation can also be briefed **with no AI call at all** — the same
+verified facts, assembled rather than generated, and labelled as such. That is
+not a degraded mode: it is what keeps the product usable past the free tier's
+daily limit.
 
 What is real, and what is not:
 
 | | |
 |---|---|
-| **Real** | The orders (anonymised Olist marketplace data, 2016–2018), the risk scores (a trained XGBoost model, served live), the investigation (four tools over the real database plus one real Gemini call), the tickets (persisted in PostgreSQL) |
+| **Real** | The orders (anonymised Olist marketplace data, 2016–2018), the risk scores (a trained XGBoost model, served live), the investigation (deterministic tools over the real database plus one real Gemini call), the tickets (persisted in PostgreSQL) |
 | **Simulated** | The escalation itself. No courier, seller or customer is ever contacted. |
 | **Historical** | Every order. The score is made *at carrier handover* and is never re-forecast mid-transit, because the dataset has no in-transit events. |
 

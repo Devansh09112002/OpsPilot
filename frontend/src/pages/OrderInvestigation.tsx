@@ -45,6 +45,7 @@ export default function OrderInvestigation() {
 
   const [order, setOrder] = useState<OrderAsOf | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
+  const [laneIds, setLaneIds] = useState<Set<string>>(new Set());
 
   const [investigation, setInvestigation] = useState<Investigation | null>(null);
   const [running, setRunning] = useState(false);
@@ -65,6 +66,21 @@ export default function OrderInvestigation() {
       cancelled = true;
     };
   }, [orderId, snapshotId]);
+
+  // Most lanes carry no cluster of flagged orders, so the link to a lane
+  // situation is offered only where one exists. A link that usually dead-ends
+  // is worse than no link.
+  useEffect(() => {
+    if (!snapshotId) return;
+    let cancelled = false;
+    api
+      .situations(snapshotId, 100)
+      .then((list) => !cancelled && setLaneIds(new Set(list.map((s) => s.situation_id))))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [snapshotId]);
 
   // The backend runs the investigation synchronously; this only paces the
   // progress list so the wait is legible. It never fabricates a result.
@@ -242,6 +258,22 @@ export default function OrderInvestigation() {
               <dd className="mono">
                 {order.seller_state ?? "--"} &rarr; {order.customer_state ?? "--"}
                 {order.is_cross_state ? " (interstate)" : " (same state)"}
+                {order.seller_state &&
+                  order.customer_state &&
+                  laneIds.has(
+                    `${snapshotId}__${order.seller_state}-${order.customer_state}`,
+                  ) && (
+                  <div style={{ marginTop: "0.25rem" }}>
+                    <Link
+                      to={`/situations/${encodeURIComponent(
+                        `${snapshotId}__${order.seller_state}-${order.customer_state}`,
+                      )}`}
+                      data-testid="lane-link"
+                    >
+                      See this lane&rsquo;s situation
+                    </Link>
+                  </div>
+                )}
               </dd>
             </dl>
             <p className="faint small" style={{ marginTop: "0.8rem", marginBottom: 0 }}>

@@ -122,6 +122,42 @@ The as-of DTO. Includes `prediction_as_of` — the carrier-handover moment the
 score refers to — and never a delivery outcome. 404 if the order is not in
 that snapshot.
 
+### `GET /snapshots/{snapshot_id}/situations`
+
+Lanes of a snapshot that carry a cluster of flagged orders, ranked by
+`expected_late` descending.
+
+Query: `limit` (1-100, default 20), `min_orders` (2-100, default 3).
+
+```json
+[{
+  "situation_id": "2018-08-15__SP-RJ",
+  "snapshot_id": "2018-08-15",
+  "seller_state": "SP", "customer_state": "RJ", "lane": "SP to RJ",
+  "n_flagged": 107, "n_high": 45, "n_lane_total": 132,
+  "share_of_lane": 0.8106,
+  "expected_late": 19.966,
+  "mean_risk": 0.1866, "max_risk": 0.4943,
+  "n_escalatable": 6,
+  "model_version": "xgboost-20260920"
+}]
+```
+
+`expected_late` is the sum of the member orders' calibrated probabilities.
+`n_escalatable` counts members that independently satisfy ESC-01; ESC-05
+permits a lane escalation at three or more.
+
+No field here is outcome-derived.
+
+### `GET /situations/{situation_id}`
+
+The same fields plus `members[]` (each with `risk_probability`, `risk_band`,
+`days_to_deadline`, `escalatable`) and `lane_history`, which comes from the
+as-of analytics path and always carries its caveats.
+
+`404` for a malformed id, an unknown snapshot, or a lane with no flagged
+orders. Ids are validated against `YYYY-MM-DD__XX-YY` before use.
+
 ### `POST /predictions`
 ```json
 {"order_id": "…", "snapshot_id": "2018-08-15"}
@@ -164,6 +200,24 @@ The body carries `facts[]` (each with the `evidence_ids` supporting it),
 `evidence[]` (what the tools actually returned), `limitations[]`,
 `recommendation`, `proposal`, `ticket_id` and `duration_ms`.
 
+### `POST /situations/{situation_id}/investigations`
+
+Query: `mode` = `llm` (default) or `deterministic`.
+
+Returns the same `InvestigationOut` contract as an order investigation, with
+`subject_type: "situation"`, a `situation` block, and `generated_by` set to
+`"model"` or `"deterministic"`.
+
+`mode=llm` draws on the session investigation budget and is counted when the
+run **starts**, since a failed run still consumed provider quota.
+`mode=deterministic` costs no quota and never calls a provider. The LLM path
+falls back to the deterministic brief on any provider failure and reports
+`generated_by: "deterministic"` when it does.
+
+A proposal appears only when the run completed, recommended escalation, and
+the backend's own ESC-05 reading permits it. Its `member_order_ids` are the
+orders the escalation would cover, and they are carried onto the ticket.
+
 ### `GET /investigations/{id}` / `GET /investigations`
 This session's investigations only. Another session's id returns 404.
 
@@ -181,7 +235,15 @@ owning session.
   concurrent retry returns the **existing** ticket with `already_decided: true`.
 - 409 if the proposal was rejected.
 - 409 if the investigation behind it did not complete.
+- 409 if an escalation for the same subject is **already open**, naming the
+  existing ticket. Proposal-level idempotency stops a double click producing
+  two tickets; it does not stop two separate investigations of the same order
+  or lane each producing one, which for a lane would raise two carrier
+  escalations covering the same orders.
 - 404 for another session's proposal.
+
+A lane ticket carries `member_order_ids`: the orders the approval covers, so
+the scope of an authorised action is recorded rather than implied.
 
 ### `POST /proposals/{id}/reject`
 Transitions to `rejected` and creates no ticket, ever. Repeat calls return
@@ -217,60 +279,3 @@ rather than quota.
 No admin endpoints, no user accounts, no arbitrary SQL or text-to-SQL, no
 endpoint that returns a delivery outcome, and no endpoint that creates a ticket
 without an explicit approval request.
-
-## Situations
-
-### `GET /api/v1/snapshots/{snapshot_id}/situations`
-
-Lanes of a snapshot that carry a cluster of flagged orders, ranked by
-`expected_late` descending.
-
-Query: `limit` (1-100, default 20), `min_orders` (2-100, default 3).
-
-```json
-[{
-  "situation_id": "2018-08-15__SP-RJ",
-  "snapshot_id": "2018-08-15",
-  "seller_state": "SP", "customer_state": "RJ", "lane": "SP to RJ",
-  "n_flagged": 107, "n_high": 45, "n_lane_total": 132,
-  "share_of_lane": 0.8106,
-  "expected_late": 19.966,
-  "mean_risk": 0.1866, "max_risk": 0.4943,
-  "n_escalatable": 6,
-  "model_version": "xgboost-20260920"
-}]
-```
-
-`expected_late` is the sum of the member orders' calibrated probabilities.
-`n_escalatable` counts members that independently satisfy ESC-01; ESC-05
-permits a lane escalation at three or more.
-
-No field here is outcome-derived.
-
-### `GET /api/v1/situations/{situation_id}`
-
-The same fields plus `members[]` (each with `risk_probability`, `risk_band`,
-`days_to_deadline`, `escalatable`) and `lane_history`, which comes from the
-as-of analytics path and always carries its caveats.
-
-`404` for a malformed id, an unknown snapshot, or a lane with no flagged
-orders. Ids are validated against `YYYY-MM-DD__XX-YY` before use.
-
-### `POST /api/v1/situations/{situation_id}/investigations`
-
-Query: `mode` = `llm` (default) or `deterministic`.
-
-Returns the same `InvestigationOut` contract as an order investigation, with
-`subject_type: "situation"`, a `situation` block, and `generated_by` set to
-`"model"` or `"deterministic"`.
-
-`mode=llm` draws on the session investigation budget and is counted when the
-run **starts**, since a failed run still consumed provider quota.
-`mode=deterministic` costs no quota and never calls a provider. The LLM path
-falls back to the deterministic brief on any provider failure and reports
-`generated_by: "deterministic"` when it does.
-
-A proposal appears only when the run completed, recommended escalation, and
-the backend's own ESC-05 reading permits it. Its `member_order_ids` are the
-orders the escalation would cover, and they are carried onto the ticket.
-

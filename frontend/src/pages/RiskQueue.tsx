@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   EmptyState,
@@ -233,6 +233,18 @@ export default function RiskQueue() {
             <div className="stat__value">{formatRisk(stats.mean_risk)}</div>
           </div>
         </div>
+      )}
+
+      {stats && stats.high_risk + stats.medium_risk > 0 && (
+        <p className="muted small" data-testid="situations-hint">
+          Reviewing{" "}
+          {(stats.high_risk + stats.medium_risk).toLocaleString()} flagged orders
+          one at a time is slow.{" "}
+          <Link to={`/situations?snapshot=${encodeURIComponent(snapshotId)}`}>
+            Group them by lane
+          </Link>{" "}
+          to see where the risk is concentrated.
+        </p>
       )}
 
       {error ? (
