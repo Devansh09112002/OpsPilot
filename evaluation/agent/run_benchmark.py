@@ -37,7 +37,6 @@ sys.path[:0] = [str(REPO_ROOT / "backend"), str(REPO_ROOT)]
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.agent import graph as graph_module  # noqa: E402
-from app.agent import tools as tools_module  # noqa: E402
 from app.agent.llm import LLMResult, LLMUnavailableError  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
@@ -363,7 +362,7 @@ def run_case(db: Session, case: Case, *, llm_available: bool) -> CaseResult:
             and state.policy_permits_escalation
         )
         score(case, state, result)
-    except Exception as exc:  # noqa: BLE001 - an unhandled crash is a failure
+    except Exception as exc:
         result.ran = True
         result.notes.append(f"unhandled exception: {type(exc).__name__}: {exc}")
         result.task_completed = False
@@ -420,6 +419,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=0,
                         help="run only the first N cases (for a smoke run)")
     parser.add_argument("--category", default=None)
+    parser.add_argument(
+        "--pace-seconds", type=float, default=5.0,
+        help=("delay between cases that call the provider, to stay inside the "
+              "free tier's per-minute quota"),
+    )
     args = parser.parse_args(argv)
 
     settings = get_settings()
@@ -445,7 +449,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Running {len(cases)} benchmark cases "
               f"(model {settings.llm_model if llm_available else 'UNAVAILABLE'})")
         results: list[CaseResult] = []
+        needs_provider = [c for c in cases if _stub_llm_for(c) is None]
+        if llm_available and needs_provider and args.pace_seconds:
+            print(f"  pacing {len(needs_provider)} provider calls at "
+                  f"{args.pace_seconds:.0f}s apart to respect the free-tier quota "
+                  f"(~{len(needs_provider) * args.pace_seconds / 60:.0f} min)")
+
         for i, case in enumerate(cases, 1):
+            if (llm_available and args.pace_seconds and i > 1
+                    and _stub_llm_for(case) is None):
+                time.sleep(args.pace_seconds)
             result = run_case(db, case, llm_available=llm_available)
             results.append(result)
             mark = ("skip" if not result.ran else ("PASS" if result.passed else "FAIL"))

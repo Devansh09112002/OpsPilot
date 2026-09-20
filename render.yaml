@@ -33,7 +33,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: LLM_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash
       - key: LLM_THINKING_BUDGET
         value: "0"
       - key: LLM_TIMEOUT_SECONDS

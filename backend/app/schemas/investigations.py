@@ -37,9 +37,14 @@ class FactItem(BaseModel):
 
 
 class InvestigationReport(BaseModel):
-    """The LLM's structured output. Validated, then checked against tool data."""
+    """The LLM's structured output. Validated, then checked against tool data.
 
-    model_config = ConfigDict(extra="forbid")
+    Deliberately NOT `extra="forbid"`: that emits `additionalProperties: false`
+    into the JSON schema, which the Gemini API rejects outright
+    ("Unknown name additional_properties"). Unknown keys are ignored instead,
+    which is safe here because nothing downstream reads an unlisted field and
+    `agent.graph.verify` re-checks every claim against real tool output.
+    """
 
     summary: str = Field(min_length=1, max_length=2000)
     facts: list[FactItem] = Field(default_factory=list)

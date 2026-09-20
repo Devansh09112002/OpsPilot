@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     # Google's console and most hosting platforms use.
     llm_api_key: str = Field(default="", validation_alias=AliasChoices(
         "LLM_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"))
-    llm_model: str = Field(default="gemini-2.5-flash")
+    llm_model: str = Field(default="gemini-3.5-flash")
     llm_max_output_tokens: int = 2000
     llm_temperature: float = 0.2
     # 0 disables Gemini's thinking mode. This task is bounded synthesis over

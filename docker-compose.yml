@@ -37,7 +37,7 @@ services:
       ARTIFACT_DIR: /app/artifacts
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-gemini-2.5-flash}
+      LLM_MODEL: ${LLM_MODEL:-gemini-3.5-flash}
       COOKIE_SECURE: "false"
       COOKIE_SAMESITE: lax
     ports:
