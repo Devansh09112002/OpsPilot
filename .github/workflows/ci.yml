@@ -156,6 +156,12 @@ jobs:
           npm run build
 
       - name: Start the API
+        env:
+          # The E2E suite is not a human. Twenty-one tests back to back from
+          # one address exceed the production 120/min per-IP cap, and the
+          # suite then measures the rate limiter instead of the product.
+          # The deployed service keeps its own value; this raises it for CI.
+          API_REQUESTS_PER_MINUTE: "2000"
         run: |
           PYTHONPATH="$PWD/backend:$PWD" \
             uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 &
