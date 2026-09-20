@@ -96,7 +96,16 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
         method=request.method,
         exc_info=exc,
     )
+    request_id = getattr(request.state, "request_id", None)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=_envelope("internal_error", "An unexpected error occurred."),
+        # The id is the only thing that connects a visitor's report to the
+        # log line that explains it. The message stays generic; the id is not
+        # sensitive and is worth more than an apology.
+        content=_envelope(
+            "internal_error",
+            "An unexpected error occurred.",
+            {"request_id": request_id} if request_id else {},
+        ),
+        headers={"X-Request-ID": request_id} if request_id else None,
     )

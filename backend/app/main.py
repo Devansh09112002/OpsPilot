@@ -112,6 +112,11 @@ async def request_context(request: Request, call_next):
     request_id = uuid.uuid4().hex[:16]
     structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(request_id=request_id)
+    # Also on the request itself: route handlers read it from here, and the
+    # error handlers put it in the response so a visitor can quote something
+    # that appears in the logs. Without this every route logged request_id
+    # as None.
+    request.state.request_id = request_id
 
     started = time.perf_counter()
     try:

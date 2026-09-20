@@ -353,3 +353,67 @@ def test_malformed_post_bodies_are_rejected_without_a_server_error(client):
     for url, body in bodies:
         response = client.post(url, json=body)
         assert response.status_code < 500, f"{url} {body} -> {response.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# Traceability
+# ---------------------------------------------------------------------------
+
+def test_a_server_error_is_traceable_without_leaking_anything(app_instance, monkeypatch):
+    """A generic message is right; a generic message with no id is useless.
+
+    The request id is what connects a visitor saying "it broke" to the log
+    line that says why. The middleware also has to put it on request.state,
+    which it did not: every route logged request_id=None.
+    """
+    from app.services import orders as orders_module
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("table order_outcomes column is_late, password=hunter2")
+
+    monkeypatch.setattr(orders_module, "list_snapshots", boom)
+    # The shared client re-raises server exceptions, which is right for every
+    # other test; here the rendered 500 is the subject.
+    from fastapi.testclient import TestClient
+
+    with TestClient(app_instance, raise_server_exceptions=False) as raw:
+        response = raw.get("/api/v1/snapshots")
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["code"] == "internal_error"
+
+    request_id = body["error"]["detail"]["request_id"]
+    assert request_id, "a 500 carried no request id"
+    assert response.headers.get("X-Request-ID") == request_id
+
+    # And nothing internal escaped with it.
+    for leak in ("order_outcomes", "is_late", "hunter2", "RuntimeError", "Traceback"):
+        assert leak not in response.text
+
+
+def test_successful_responses_also_carry_the_request_id(client):
+    response = client.get("/api/v1/snapshots")
+    assert response.status_code == 200
+    assert response.headers.get("X-Request-ID")
+
+
+def test_routes_receive_the_request_id_rather_than_none(client, monkeypatch):
+    """Guards the specific bug: request.state.request_id was never assigned."""
+    seen = {}
+
+    from app.api.v1 import routes as routes_module
+
+    original = routes_module.log.info
+
+    def capture(event, **kw):
+        if event == "situation_investigation_request":
+            seen.update(kw)
+        return original(event, **kw)
+
+    monkeypatch.setattr(routes_module.log, "info", capture)
+    client.post(
+        "/api/v1/situations/2018-08-15__SP-RJ/investigations?mode=deterministic"
+    )
+    if seen:
+        assert seen.get("request_id") is not None, "route logged request_id=None"
