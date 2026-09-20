@@ -227,6 +227,31 @@ approval journeys un-skip themselves once `llm_configured` is true.
 
 ---
 
+## Measured performance of the live deployment
+
+Against the plan's release targets, measured on the warm public instance with
+`python -m infra.measure_latency --samples 20 --investigations 3`:
+
+| Endpoint | Median | p95 | Target |
+|---|---|---|---|
+| `GET /health` | 0.252 s | 0.271 s | |
+| `GET /snapshots` | 0.334 s | 0.349 s | |
+| `GET /snapshots/{id}/stats` | 0.361 s | 0.379 s | |
+| `GET /orders` (25 rows) | 0.416 s | 1.163 s | |
+| `GET /meta` | 0.251 s | 0.297 s | |
+| **worst non-LLM p95** | | **1.163 s** | **p95 <= 2 s — PASS** |
+| **investigation** | **9.64 s** | **17.09 s** | **p95 <= 30 s — PASS** |
+
+Excludes cold starts: the instance is warmed before sampling, because a free
+service that has slept takes up to a minute on its first request and that
+number describes the hosting tier, not the application.
+
+Investigation latency varies widely (3.5 s to 17.1 s across three samples)
+because it is dominated by the provider call, not by anything OpsPilot
+controls.
+
+---
+
 ## Rolling back
 
 Render keeps previous deploys. **Dashboard → service → Events → Rollback**
