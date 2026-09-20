@@ -134,7 +134,7 @@ export default function SituationDetail() {
           </div>
           <div className="stat">
             <span className="stat__value">{situation.expected_late.toFixed(1)}</span>
-            <span className="stat__label">expected late</span>
+            <span className="stat__label">risk load</span>
           </div>
           <div className="stat">
             <span className="stat__value">{situation.n_escalatable}</span>

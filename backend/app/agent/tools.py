@@ -341,11 +341,13 @@ def get_situation_details(db: Session, situation_id: str) -> ToolResult:
             for m in shown
         ],
         "interpretation": (
-            "'expected_late' is the sum of the member orders' calibrated "
-            "probabilities: how many of these orders the model expects to be "
-            "delivered late. It is a model estimate for this snapshot, not a "
-            "count of known outcomes, and not a judgement about how this lane "
-            "will perform in future."
+            "'expected_late' is the sum of the member orders' calibrated risk "
+            "estimates. Measured against held-out snapshots this sum "
+            "OVERSTATES the number of orders that were actually late (see "
+            "docs/snapshot_calibration.md), because the calibrator was fitted "
+            "on a period with a much higher late rate. Use it to compare one "
+            "lane against another, not as a forecast of how many parcels will "
+            "miss their date. It is never a count of known outcomes."
         ),
     }
 

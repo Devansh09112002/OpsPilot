@@ -551,3 +551,92 @@ def test_a_lane_at_the_minimum_actually_produces_a_proposal(client, db):
             f"lane {situation.lane} has {situation.n_escalatable} qualifying "
             f"members; expected proposal={expect_proposal}"
         )
+
+
+# ---------------------------------------------------------------------------
+# What expected_late is allowed to claim
+#
+# Measured against the held-out snapshots, the sum of member probabilities
+# overstates the number of orders actually late by about half again
+# (docs/snapshot_calibration.md). The arithmetic is correct; the forecast
+# reading of it is not, so no surface may offer that reading.
+# ---------------------------------------------------------------------------
+
+# Only unambiguously affirmative phrasings. A substring like "parcels will"
+# also matches the *negation* the corrected copy deliberately contains, which
+# would make this test fail on the very wording it exists to require.
+FORECAST_PHRASES = (
+    "expects to be delivered late",
+    "expects to arrive late",
+    "expected late deliveries",
+    "the model expects about",
+    "orders will miss",
+)
+
+
+def test_no_surface_presents_the_risk_load_as_a_forecast_of_a_count(db):
+    """The tool payload, the schema and the deterministic brief, together."""
+    from app.agent import tools as agent_tools
+    from app.agent.situation_graph import run_situation_investigation
+    from app.schemas.situations import SituationSummary
+
+    situation = _any_situation(db)
+
+    tool = agent_tools.get_situation_details(db, situation.situation_id)
+    assert tool.ok
+    interpretation = tool.data["interpretation"].lower()
+    assert "overstates" in interpretation
+    for phrase in FORECAST_PHRASES:
+        assert phrase not in interpretation, f"tool payload claims: {phrase}"
+
+    described = SituationSummary.model_fields["expected_late"].description.lower()
+    assert "overstates" in described
+
+    state = run_situation_investigation(
+        db, situation.situation_id, mode="deterministic"
+    )
+    prose = " ".join(
+        [state.report.summary, *(f.statement for f in state.report.facts)]
+    ).lower()
+    for phrase in FORECAST_PHRASES:
+        assert phrase not in prose, f"deterministic brief claims: {phrase}"
+
+
+def test_the_situation_prompt_forbids_the_forecast_reading():
+    """The model is told the same thing the UI says."""
+    from app.agent.prompts import SITUATION_SYSTEM_PROMPT
+
+    lowered = SITUATION_SYSTEM_PROMPT.lower()
+    assert "overstates" in lowered
+    assert "never write that the model" in lowered
+
+
+def test_the_documented_calibration_ratio_matches_what_is_measured(db):
+    """Stop the published figure and the real one drifting apart.
+
+    `docs/snapshot_calibration.json` is produced by
+    `python -m evaluation.snapshot_calibration`. If the model, the calibrator
+    or the snapshots change, the committed number has to be regenerated.
+    """
+    import json
+    from pathlib import Path
+
+    import pandas as pd
+
+    from evaluation.snapshot_calibration import QUERY, measure
+
+    published_path = Path(__file__).resolve().parents[2] / "docs" / "snapshot_calibration.json"
+    if not published_path.exists():
+        pytest.skip("run python -m evaluation.snapshot_calibration first")
+    published = json.loads(published_path.read_text(encoding="utf-8"))
+
+    # Measured from the test slice, which is a subset, so only the direction
+    # and rough magnitude are comparable - not the absolute totals.
+    measured = measure(pd.read_sql(QUERY, db.get_bind()))
+
+    assert measured["overall_ratio"] is not None
+    assert measured["overall_ratio"] > 1.0, (
+        "the published finding is that the sum overstates; it no longer does, "
+        "so docs/snapshot_calibration.md must be regenerated"
+    )
+    assert published["overall_ratio"] > 1.0

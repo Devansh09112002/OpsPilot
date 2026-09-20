@@ -165,8 +165,9 @@ def build_deterministic_brief(
     if "situation.expected_late" in known and state.expected_late is not None:
         facts.append(FactItem(
             statement=(
-                f"The model expects about {state.expected_late:.1f} of these orders "
-                "to be delivered late."
+                f"The member risk estimates sum to {state.expected_late:.1f}. On "
+                "held-out snapshots this sum overstated the number actually "
+                "late, so it ranks lanes rather than forecasting a count."
             ),
             evidence_ids=["situation.expected_late"],
         ))
@@ -201,8 +202,8 @@ def build_deterministic_brief(
         summary=(
             f"Lane {lane}, snapshot {state.snapshot_id}: {state.n_flagged} flagged "
             f"orders, {state.n_escalatable} of them individually escalatable under "
-            f"ESC-01, with about "
-            f"{state.expected_late:.1f} expected late deliveries."
+            f"ESC-01. Member risk estimates sum to "
+            f"{state.expected_late:.1f}."
             if state.expected_late is not None
             else f"Lane {lane}, snapshot {state.snapshot_id}: {state.n_flagged} flagged orders."
         ),

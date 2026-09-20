@@ -171,11 +171,31 @@ enough to rank on. Ranking is therefore driven by current model output, and a
 situation makes a **descriptive** claim about one snapshot, never a forecast of
 lane quality.
 
-**Ranking quantity.** Situations are ordered by `expected_late`, the sum of
-member calibrated probabilities - how many of these orders the model expects to
-arrive late. That sum is only meaningful because the scores were calibrated;
-adding up `scale_pos_weight`-inflated raw outputs would produce a number with
-no units. The calibration work pays for itself here.
+**Ranking quantity.** Situations are ordered by the sum of member calibrated
+risk estimates. That sum is only *arithmetically* meaningful because the scores
+were calibrated; adding up `scale_pos_weight`-inflated raw outputs would give a
+number with no units.
+
+It is not, however, a trustworthy forecast of a count, and measuring that was
+one of the more useful things this project did to itself. Against the held-out
+snapshots the sum **overstates** the number of orders actually late by about
+1.504x (93.26 predicted against 62 observed across 579 flagged orders);
+21 of 31 lane situations overstate. The cause is the shift the dataset
+is already known for: the isotonic calibrator is fitted on validation at a
+10.8% late rate and applied to a test period at 3.0%.
+
+It was not "fixed", deliberately. Refitting the calibrator on the test period,
+or picking a different fitting window after seeing these numbers, would make
+every held-out figure in the model report meaningless. The model is frozen, the
+measurement is published in `docs/snapshot_calibration.md` and reproducible via
+`python -m evaluation.snapshot_calibration`, and the **product wording changed
+instead**: the UI calls it *risk load*, says plainly that it overstates, and a
+test asserts no surface - tool payload, API schema, agent prompt or
+deterministic brief - offers the forecast reading.
+
+What survives the bias is ranking, which is what the product actually uses it
+for: a multiplicative error reorders nothing, and rank correlation between
+predicted and actual late counts across situations is 0.46.
 
 **One threshold, composed.** ESC-05 permits a lane escalation when at least
 three members each independently qualify under ESC-01. It defines no new risk

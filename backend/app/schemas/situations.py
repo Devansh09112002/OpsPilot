@@ -32,9 +32,11 @@ class SituationSummary(BaseModel):
     share_of_lane: float
     expected_late: float = Field(
         description=(
-            "Sum of member calibrated probabilities: how many of these orders "
-            "the model expects to be delivered late. Meaningful only because "
-            "the scores are calibrated."
+            "Sum of the member orders' calibrated risk estimates. Summable "
+            "only because the scores are calibrated, but measured against "
+            "held-out snapshots it overstates the number actually late by "
+            "roughly half again (docs/snapshot_calibration.md). Intended for "
+            "comparing lanes, not as a forecast of a count."
         )
     )
     mean_risk: float

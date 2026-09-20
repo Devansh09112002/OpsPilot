@@ -1,0 +1,76 @@
+{
+  "flagged_orders": 579,
+  "predicted_late_total": 93.26,
+  "actual_late_total": 62,
+  "overall_ratio": 1.504,
+  "by_snapshot": [
+    {
+      "snapshot_id": "2018-06-20",
+      "flagged_orders": 105,
+      "predicted_late": 15.09,
+      "actual_late": 4,
+      "ratio": 3.772
+    },
+    {
+      "snapshot_id": "2018-07-18",
+      "flagged_orders": 117,
+      "predicted_late": 18.5,
+      "actual_late": 13,
+      "ratio": 1.423
+    },
+    {
+      "snapshot_id": "2018-08-15",
+      "flagged_orders": 357,
+      "predicted_late": 59.67,
+      "actual_late": 45,
+      "ratio": 1.326
+    }
+  ],
+  "situations_measured": 31,
+  "situation_mean_signed_error": 1.054,
+  "situation_mean_absolute_error": 1.774,
+  "situations_overstated": 21,
+  "rank_correlation_expected_vs_actual": 0.46,
+  "worst_situations": [
+    {
+      "snapshot_id": "2018-08-15",
+      "lane": "SP to RJ",
+      "n_flagged": 107,
+      "expected_late": 19.97,
+      "actual_late": 12,
+      "error": 7.97
+    },
+    {
+      "snapshot_id": "2018-06-20",
+      "lane": "SP to RJ",
+      "n_flagged": 45,
+      "expected_late": 6.72,
+      "actual_late": 1,
+      "error": 5.72
+    },
+    {
+      "snapshot_id": "2018-06-20",
+      "lane": "SP to SP",
+      "n_flagged": 33,
+      "expected_late": 4.6,
+      "actual_late": 0,
+      "error": 4.6
+    },
+    {
+      "snapshot_id": "2018-07-18",
+      "lane": "SP to MA",
+      "n_flagged": 5,
+      "expected_late": 0.71,
+      "actual_late": 4,
+      "error": -3.29
+    },
+    {
+      "snapshot_id": "2018-08-15",
+      "lane": "SP to SP",
+      "n_flagged": 68,
+      "expected_late": 10.76,
+      "actual_late": 14,
+      "error": -3.24
+    }
+  ]
+}

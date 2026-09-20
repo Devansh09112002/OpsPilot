@@ -86,7 +86,7 @@ export default function Situations() {
           <h2>Lane situations</h2>
           <p className="muted" style={{ maxWidth: "62ch" }}>
             Flagged orders grouped by the lane they travel, ranked by how many
-            late deliveries the model expects. A lane is one decision: you
+            risk they carry. A lane is one decision: you
             escalate a route with a carrier, not an order at a time.
           </p>
         </div>
@@ -142,7 +142,7 @@ export default function Situations() {
               <tr>
                 <th>Lane</th>
                 <th className="num">Flagged</th>
-                <th className="num">Expected late</th>
+                <th className="num">Risk load</th>
                 <th className="num">Mean risk</th>
                 <th className="num">Share of lane</th>
                 <th>Escalatable</th>
@@ -199,10 +199,13 @@ export default function Situations() {
 
       <div className="muted small" style={{ marginTop: "1rem", maxWidth: "72ch" }}>
         <p>
-          <strong>Expected late</strong> is the sum of the member orders&rsquo;
-          calibrated probabilities &mdash; how many of them the model expects to
-          miss the promised date. It describes where risk sits in this snapshot.
-          It is not a judgement about how a lane performs over time.
+          <strong>Risk load</strong> is the sum of the member orders&rsquo;
+          calibrated risk estimates. Measured against what actually happened on
+          these snapshots it <strong>overstates</strong> the number of orders
+          that were really late &mdash; by about half again &mdash; because the
+          model was calibrated on a period with a much higher late rate. Use it
+          to compare one lane with another, which is what it is reliable for,
+          rather than as a forecast of how many parcels will miss their date.
         </p>
         <p>
           <strong>High</strong> counts orders whose risk clears the escalation

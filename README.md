@@ -36,10 +36,17 @@ The two journeys a visitor can complete:
 
 **Situations → open a lane → Investigate → approve once for every order on it → ticket**
 
-A lane situation is ranked by **expected late orders**: the sum of its members'
-calibrated probabilities, or how many of them the model expects to arrive late.
-That sum only means something because the scores are calibrated; adding up raw
-model output would give a number with no units.
+A lane situation is ranked by **risk load**: the sum of its members' calibrated
+risk estimates. That sum is only arithmetically meaningful because the scores
+are calibrated - adding up raw model output would give a number with no units.
+
+It is deliberately *not* presented as a forecast of a count, because it was
+measured and it is not one: against the held-out snapshots it overstates the
+orders actually late by about 1.504x. That measurement is reproducible
+(`python -m evaluation.snapshot_calibration`), published in
+[`docs/snapshot_calibration.md`](docs/snapshot_calibration.md), and the wording
+throughout the product was changed to match rather than the number quietly
+retuned on test data.
 
 Every situation can also be briefed **with no AI call at all** — the same
 verified facts, assembled rather than generated, and labelled as such. That is
