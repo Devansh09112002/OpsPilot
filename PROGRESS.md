@@ -47,11 +47,13 @@ output inspected.
 
 ### Backend and agent
 - 117 backend tests pass; ruff clean.
-- **12 E2E browser journeys pass against real Gemini**, including the full
+- **20 E2E browser journeys pass against the deployed site**, including the full
   approve path (5.5 s) and the reject path (6.7 s). The twelfth is correctly
   skipped: it asserts the no-LLM failure path, which does not apply when a key
   is configured.
-- **Agent benchmark: 59/59, held-out 30/30 (100%)** against an 85% target.
+- **Agent benchmark: 68/69, held-out 36/36 (100%)** against an 85% target.
+  The one miss is `flt-006` (development, sparse history): the model recorded
+  no limitation where the case requires one. Left as a miss.
   Claim support, policy citation validity, approval compliance and outcome
   containment all 100%. Latency median 2.8 s, p95 5.0 s; median
   3,576 input / 527 output tokens per investigation.
@@ -70,6 +72,22 @@ output inspected.
 - Backend RSS **~340 MB** against Render's 512 MB.
 
 ---
+
+## v2: lane situations
+
+Flagged orders grouped by lane, investigable and escalatable as one unit. The
+2018-08-15 snapshot flags 395 orders across 37 lanes; five hold 73% of them.
+
+- **A feature the data refused.** Seller-level risk does not persist across the
+  cutoff (Spearman +0.105, p = 0.13), so the obvious "worst sellers" page was
+  not built. Lane persistence is real but weak (+0.286), so lane history is
+  background and ranking comes from current model output.
+- **Deterministic briefs.** Every situation can be briefed with no provider
+  call. The free tier allows ~100 investigations a day against 395 flagged
+  orders, so this is what makes the product usable, not a degraded mode.
+- **ESC-05 composes ESC-01** rather than defining a second risk threshold.
+- Verification moved to `agent/verification.py`, shared by both graphs, and
+  gained a membership rule.
 
 ## Bugs found by tests and fixed
 

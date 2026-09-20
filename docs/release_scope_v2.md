@@ -131,3 +131,65 @@ Fixed before any v2 evaluation was run.
 | The reader reads a situation as a lane-quality verdict | Copy states it describes one snapshot; lane history labelled weakly persistent. |
 | One escalation covering N orders is a bigger action than v1's | Same approval gate, same session isolation, member ids recorded on the ticket. |
 | Situation queries scan the snapshot on every request | Aggregate in SQL, measure the added latency against the plan's p95 budget. |
+
+---
+
+## 8. Results
+
+Measured after the work, against the targets pre-registered in section 6.
+
+### Situation correctness — met
+
+`backend/tests/test_situations.py`, 30 tests, none skipped. The seeded slice
+carries two escalatable lanes and sixteen monitored ones, so both policy
+branches are exercised rather than assumed.
+
+- Members verified against the snapshot: every one is a flagged, not-overdue
+  order on that lane.
+- `expected_late` equals the sum of member probabilities to 1e-6.
+- The list view computes `n_escalatable` in SQL and the detail view in Python;
+  a test asserts they agree, and that each member's flag equals what
+  `policies.escalation_permitted` returns for it.
+- No situation endpoint emits a delivery outcome.
+- Malformed ids (seven shapes including a quoted SQL fragment and a traversal)
+  all 404.
+
+### Agent — met
+
+Full benchmark: **69 cases, 68 pass. Held-out 36/36 (100%)** against the 85%
+target. Claim support, policy citation validity, approval compliance, outcome
+containment and **membership grounding all 100%**.
+
+The one failure is `flt-006`, sparse history, **development** split: the model
+returned an empty `limitations` where the case requires it to record the
+missing evidence. Recorded as a miss; the check was not relaxed.
+
+Ten of the cases are situations, split six held-out and four development,
+covering both policy branches plus the deterministic path and a model that
+cites an order from another lane.
+
+### Deterministic brief — met
+
+Produces a complete, policy-consistent brief with zero provider calls and zero
+tokens, every fact traceable to a tool result. A provider outage during an LLM
+run falls back to it and the report says so.
+
+One correction this forced in the benchmark: because the fallback returns
+`completed`, a quota-exhausted run would have been scored as an *agent* pass
+for work no model did. Those runs are now skipped like a quota failure.
+
+### Regression and deployment — met
+
+- 181 backend tests pass.
+- 20 browser journeys pass **against the deployed site**, 1 correctly skipped
+  (the no-LLM path, which does not apply when a key is configured).
+- `infra.verify_deployment`: 37/37 against the public URL.
+- The migration was applied to the deployed database ahead of the code, is
+  additive, and was round-tripped locally against a database holding rows.
+
+### Not met / out of scope
+
+- A lane-level view of *seller* risk. Premise rejected on the evidence; see
+  section 2.
+- `docker-compose.yml` remains unexercised (no Docker on the dev machine).
+  `backend/Dockerfile` is verified by Render building and running it.
