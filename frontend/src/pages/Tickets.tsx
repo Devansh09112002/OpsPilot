@@ -86,7 +86,7 @@ export default function Tickets() {
             <thead>
               <tr>
                 <th>Ticket</th>
-                <th>Order</th>
+                <th>Subject</th>
                 <th>Status</th>
                 <th>Action</th>
                 <th>Reason</th>
@@ -99,12 +99,23 @@ export default function Tickets() {
                 <tr key={t.ticket_id} data-testid="ticket-row">
                   <td className="mono">{shortId(t.ticket_id, 14)}</td>
                   <td>
-                    <Link
-                      to={`/orders/${t.order_id}?snapshot=${t.snapshot_id}`}
-                      className="mono"
-                    >
-                      {shortId(t.order_id, 12)}
-                    </Link>
+                    {t.subject_type === "situation" ? (
+                      <>
+                        <Link to={`/situations/${encodeURIComponent(t.subject_id)}`}>
+                          Lane {t.subject_id.split("__")[1]?.replace("-", " to ")}
+                        </Link>
+                        <div className="muted small">
+                          covers {t.member_order_ids?.length ?? 0} orders
+                        </div>
+                      </>
+                    ) : (
+                      <Link
+                        to={`/orders/${t.order_id}?snapshot=${t.snapshot_id}`}
+                        className="mono"
+                      >
+                        {shortId(t.order_id ?? "", 12)}
+                      </Link>
+                    )}
                   </td>
                   <td>
                     <span className="badge badge--low">{t.status}</span>

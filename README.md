@@ -113,7 +113,10 @@ established causes.
 
 ### Agent — [`docs/agent_evaluation.md`](docs/agent_evaluation.md)
 
-**59/59 cases pass, held-out 30/30 (100%)** against a stated 85% target.
+**68/69 cases pass, held-out 36/36 (100%)** against a stated 85% target. The
+one miss is `flt-006` in the development split: on a sparse-history case the
+model returned no limitation where the case requires one. It is recorded as a
+miss rather than relaxed.
 
 | Criterion | Result |
 |---|---|
@@ -189,7 +192,7 @@ open http://localhost:5173
 ### Tests
 
 ```bash
-pytest backend/tests                        # 151 backend tests
+pytest backend/tests                        # 181 backend tests
 cd frontend && npx playwright test          # browser journeys
 python -m evaluation.agent.run_benchmark    # agent benchmark
 ```

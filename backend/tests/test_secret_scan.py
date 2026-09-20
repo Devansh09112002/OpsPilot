@@ -28,7 +28,9 @@ def test_remote_dsn_with_a_real_password_is_a_leak(line):
 
 @pytest.mark.parametrize("snippet,label", [
     ("AIzaSyA" + "b" * 32, "Google"),
-    ("AQ.Ab8RN6" + "c" * 45, "Google new format"),
+    # Synthetic prefix on purpose: a fixture must not carry real bytes of a
+    # real key, or every audit grep for that key hits this file.
+    ("AQ.Zz0000" + "c" * 45, "Google new format"),
     ("sk-ant-api03-" + "d" * 40, "Anthropic"),
     ("ghp_" + "e" * 36, "GitHub"),
     ("sbp_" + "f" * 40, "Supabase"),

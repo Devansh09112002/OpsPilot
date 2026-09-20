@@ -39,6 +39,11 @@ Category = Literal[
     "llm_outage",
     "prompt_injection",
     "duplicate_proposal",
+    # Lane situations
+    "situation_escalatable",
+    "situation_monitored",
+    "situation_deterministic",
+    "situation_foreign_order",
 ]
 
 
@@ -52,6 +57,14 @@ class Case:
     order_id: str
     snapshot_id: str
     description: str
+
+    # Set for a lane-situation case. When present the runner drives the
+    # situation graph instead of the order graph, and `order_id` is unused.
+    situation_id: str | None = None
+    situation_mode: str = "llm"
+    # Every member order of that situation. A report may name these and no
+    # others; the runner scores that as membership grounding.
+    member_order_ids: tuple[str, ...] = ()
 
     # Expectations. `None` means "not asserted for this case".
     expect_status: str | None = None
@@ -325,6 +338,7 @@ def build_cases(db: Session) -> list[Case]:
         ),
     ]
     cases.extend(faults)
+    cases.extend(build_situation_cases(db))
     return cases
 
 
@@ -335,3 +349,88 @@ def summarise(cases: list[Case]) -> dict:
         by_split[c.split] = by_split.get(c.split, 0) + 1
         by_category[c.category] = by_category.get(c.category, 0) + 1
     return {"total": len(cases), "by_split": by_split, "by_category": by_category}
+
+
+def build_situation_cases(db: Session) -> list[Case]:
+    """Lane-situation scenarios, generated from real snapshot contents.
+
+    Both policy branches are covered deliberately: a lane that ESC-05 permits
+    escalating and a lane it does not. A benchmark that only saw escalatable
+    lanes would not notice a model that always recommends escalation.
+    """
+    from app.services import policies as policy_service
+    from app.services import situations as situation_service
+
+    cases: list[Case] = []
+    n = 0
+    for snapshot_id in ("2018-08-15", "2018-07-18", "2018-06-20"):
+        found = situation_service.list_situations(db, snapshot_id, limit=8)
+        escalatable, monitored = [], []
+        for summary in found:
+            permitted, _ = policy_service.situation_escalation_permitted(
+                n_escalatable=summary.n_escalatable, n_flagged=summary.n_flagged
+            )
+            (escalatable if permitted else monitored).append(summary)
+
+        for group, category, recommendations, expect_proposal in (
+            (escalatable[:2], "situation_escalatable",
+             ("propose_escalation", "monitor"), None),
+            (monitored[:2], "situation_monitored", ("monitor", "no_escalation"), False),
+        ):
+            for summary in group:
+                detail = situation_service.get_situation(db, summary.situation_id)
+                split: Split = "development" if n % 2 == 0 else "held_out"
+                cases.append(Case(
+                    case_id=f"sit-{n:03d}",
+                    category=category,
+                    split=split,
+                    order_id="",
+                    snapshot_id=snapshot_id,
+                    situation_id=summary.situation_id,
+                    member_order_ids=tuple(m.order_id for m in detail.members),
+                    description=(
+                        f"Lane {summary.lane} in {snapshot_id}: "
+                        f"{summary.n_flagged} flagged, "
+                        f"{summary.n_escalatable} qualifying under ESC-01."
+                    ),
+                    expect_status="completed",
+                    expect_recommendation_in=recommendations,
+                    expect_proposal=expect_proposal,
+                ))
+                n += 1
+
+    if not cases:
+        return cases
+
+    # The deterministic brief must satisfy the same contract with no provider.
+    reference = cases[0]
+    cases.append(Case(
+        case_id=f"sit-{n:03d}",
+        category="situation_deterministic",
+        split="held_out",
+        order_id="",
+        snapshot_id=reference.snapshot_id,
+        situation_id=reference.situation_id,
+        situation_mode="deterministic",
+        member_order_ids=reference.member_order_ids,
+        description="The deterministic brief, produced with no provider call.",
+        expect_status="completed",
+    ))
+    n += 1
+
+    # Membership grounding: a model naming an order from another lane must not
+    # have that statement survive verification.
+    cases.append(Case(
+        case_id=f"sit-{n:03d}",
+        category="situation_foreign_order",
+        split="held_out",
+        order_id="",
+        snapshot_id=reference.snapshot_id,
+        situation_id=reference.situation_id,
+        member_order_ids=reference.member_order_ids,
+        description="The model cites an order that is not part of this situation.",
+        fault="llm_cites_foreign_order",
+        expect_status="completed",
+        expect_limitation_mentioning="not part of this situation",
+    ))
+    return cases

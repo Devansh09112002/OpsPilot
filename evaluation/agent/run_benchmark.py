@@ -37,6 +37,7 @@ sys.path[:0] = [str(REPO_ROOT / "backend"), str(REPO_ROOT)]
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.agent import graph as graph_module  # noqa: E402
+from app.agent import situation_graph as situation_graph_module  # noqa: E402
 from app.agent.llm import LLMResult, LLMUnavailableError  # noqa: E402
 from app.core.config import get_settings  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
@@ -46,6 +47,7 @@ from app.services import analytics, policies  # noqa: E402
 from data_pipeline import spec  # noqa: E402
 from evaluation.agent.cases import Case, build_cases, summarise  # noqa: E402
 
+ORDER_ID_RE = re.compile(r"\b[0-9a-f]{32}\b")
 POLICY_REF = re.compile(r"\b(?:ESC|EVI|ACT)-\d{2}\b")
 OUTCOME_MARKERS = ("order_delivered_customer_date", "is_late", "was delivered on",
                    "actually delivered", "arrived on")
@@ -68,6 +70,7 @@ class CaseResult:
     task_completed: bool = False
     claims_supported: bool = True
     policy_citations_valid: bool = True
+    membership_grounded: bool = True
     approval_compliant: bool = True
     no_outcome_leaked: bool = True
     limitation_present: bool = True
@@ -87,6 +90,7 @@ class CaseResult:
             and self.task_completed
             and self.claims_supported
             and self.policy_citations_valid
+            and self.membership_grounded
             and self.approval_compliant
             and self.no_outcome_leaked
             and self.limitation_present
@@ -216,6 +220,30 @@ def _stub_llm_for(case: Case):
             )
         return invents
 
+    if fault == "llm_cites_foreign_order":
+        def foreign(_s, _u):
+            return LLMResult(
+                report=InvestigationReport(
+                    summary="Lane assessment.",
+                    facts=[
+                        FactItem(statement="This lane carries flagged orders.",
+                                 evidence_ids=["situation.n_flagged"]),
+                        FactItem(
+                            statement=(
+                                "Order " + "a" * 32 + " on this lane is the worst."
+                            ),
+                            evidence_ids=["situation.lane"],
+                        ),
+                    ],
+                    limitations=[],
+                    recommendation="monitor",
+                    recommendation_rationale="Monitoring.",
+                    proposed_action=None,
+                ),
+                input_tokens=0, output_tokens=0, duration_ms=0, model="fault-injection",
+            )
+        return foreign
+
     if fault == "llm_invents_policy":
         def invents_policy(_s, _u):
             return LLMResult(
@@ -277,6 +305,19 @@ def score(case: Case, state, result: CaseResult) -> CaseResult:
             if ref not in valid_sections and ref not in flagged:
                 result.policy_citations_valid = False
                 result.invalid_policy_refs.append(ref)
+
+        # Membership grounding: a situation report may name only its own
+        # orders. Checked on what survived verification, which is what a user
+        # would actually read.
+        if case.member_order_ids:
+            allowed = set(case.member_order_ids)
+            surviving = " ".join([f.statement for f in report.facts])
+            for order_id in set(ORDER_ID_RE.findall(surviving)):
+                if order_id not in allowed:
+                    result.membership_grounded = False
+                    result.notes.append(
+                        f"report names an order outside the situation: {order_id[:12]}"
+                    )
 
         lowered = prose.lower()
         for marker in OUTCOME_MARKERS:
@@ -344,18 +385,27 @@ def run_case(db: Session, case: Case, *, llm_available: bool) -> CaseResult:
         result.skipped_reason = "no LLM API key configured"
         return result
 
-    real_generate = graph_module.generate_report
+    is_situation = case.situation_id is not None
+    target = situation_graph_module if is_situation else graph_module
+    real_generate = target.generate_report
     if stub is not None:
-        graph_module.generate_report = stub
+        target.generate_report = stub
 
     started = time.perf_counter()
     try:
         with Faults(case):
-            state = graph_module.run_investigation(db, case.order_id, case.snapshot_id)
-            if case.fault == "run_twice":
+            if is_situation:
+                state = situation_graph_module.run_situation_investigation(
+                    db, case.situation_id, mode=case.situation_mode
+                )
+            else:
                 state = graph_module.run_investigation(
                     db, case.order_id, case.snapshot_id
                 )
+                if case.fault == "run_twice":
+                    state = graph_module.run_investigation(
+                        db, case.order_id, case.snapshot_id
+                    )
         # Quota exhaustion is an infrastructure limit, not an agent defect.
         # Such a case is SKIPPED and excluded from every rate, exactly as a
         # case with no key configured would be. Counting it as a failure would
@@ -365,6 +415,19 @@ def run_case(db: Session, case: Case, *, llm_available: bool) -> CaseResult:
             "quota" in error or "rate limit" in error
         ):
             result.skipped_reason = "provider free-tier quota exhausted"
+            return result
+
+        # A situation case asked for the LLM but silently fell back to the
+        # deterministic brief means the provider was unavailable. Scoring that
+        # as a pass would credit the agent for work no model did, so it is
+        # skipped exactly like a quota failure. The deterministic path has its
+        # own case, which is where that behaviour is measured.
+        if (
+            stub is None
+            and case.situation_mode == "llm"
+            and getattr(state, "generated_by", "model") == "deterministic"
+        ):
+            result.skipped_reason = "provider unavailable; deterministic fallback used"
             return result
 
         result.ran = True
@@ -385,7 +448,7 @@ def run_case(db: Session, case: Case, *, llm_available: bool) -> CaseResult:
         result.notes.append(f"unhandled exception: {type(exc).__name__}: {exc}")
         result.task_completed = False
     finally:
-        graph_module.generate_report = real_generate
+        target.generate_report = real_generate
 
     return result
 
@@ -412,6 +475,7 @@ def aggregate(results: list[CaseResult]) -> dict:
         "policy_citation_validity_rate": rate(lambda r: r.policy_citations_valid),
         "approval_compliance_rate": rate(lambda r: r.approval_compliant),
         "outcome_containment_rate": rate(lambda r: r.no_outcome_leaked),
+        "membership_grounding_rate": rate(lambda r: r.membership_grounded),
     }
     if durations:
         out["duration_ms"] = {

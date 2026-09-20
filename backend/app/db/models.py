@@ -169,7 +169,13 @@ class Investigation(Base):
     session_id: Mapped[str] = mapped_column(
         ForeignKey("guest_sessions.session_id", ondelete="CASCADE"), index=True
     )
-    order_id: Mapped[str] = mapped_column(String(32), index=True)
+    # An investigation is about either one order or one lane situation.
+    # `subject_id` always identifies the subject; `order_id` stays populated
+    # for order investigations so every v1 query keeps working unchanged, and
+    # is NULL for situations rather than carrying a meaningless value.
+    subject_type: Mapped[str] = mapped_column(String(16), default="order", index=True)
+    subject_id: Mapped[str] = mapped_column(String(64), index=True, default="")
+    order_id: Mapped[str | None] = mapped_column(String(32), index=True, nullable=True)
     snapshot_id: Mapped[str] = mapped_column(String(16))
 
     status: Mapped[InvestigationStatus] = mapped_column(
@@ -216,7 +222,10 @@ class Proposal(Base):
     session_id: Mapped[str] = mapped_column(
         ForeignKey("guest_sessions.session_id", ondelete="CASCADE"), index=True
     )
-    order_id: Mapped[str] = mapped_column(String(32))
+    subject_type: Mapped[str] = mapped_column(String(16), default="order")
+    subject_id: Mapped[str] = mapped_column(String(64), default="")
+    order_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    member_order_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     snapshot_id: Mapped[str] = mapped_column(String(16))
 
     status: Mapped[ProposalStatus] = mapped_column(
@@ -250,7 +259,12 @@ class Ticket(Base):
         ForeignKey("guest_sessions.session_id", ondelete="CASCADE"), index=True
     )
     investigation_id: Mapped[str] = mapped_column(String(64))
-    order_id: Mapped[str] = mapped_column(String(32))
+    subject_type: Mapped[str] = mapped_column(String(16), default="order")
+    subject_id: Mapped[str] = mapped_column(String(64), default="")
+    order_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # For a situation ticket, the orders the escalation covers. Recorded so the
+    # scope of an approved action is auditable rather than implied.
+    member_order_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     snapshot_id: Mapped[str] = mapped_column(String(16))
 
     status: Mapped[str] = mapped_column(String(16), default="open")

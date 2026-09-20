@@ -40,10 +40,17 @@ from app.schemas.orders import (
     SnapshotStats,
     SnapshotSummary,
 )
+from app.schemas.situations import (
+    LaneHistoryOut,
+    SituationDetail,
+    SituationSummary,
+)
+from app.services import analytics as analytics_service
 from app.services import investigations as investigation_service
 from app.services import orders as order_service
 from app.services import policies as policy_service
 from app.services import proposals as proposal_service
+from app.services import situations as situation_service
 
 log = get_logger(__name__)
 router = APIRouter()
@@ -123,6 +130,53 @@ def snapshot_stats(
     snapshot_id: str, _: None = Depends(rate_limit), db: Session = Depends(get_db)
 ) -> SnapshotStats:
     return order_service.snapshot_stats(db, snapshot_id)
+
+
+@router.get(
+    "/snapshots/{snapshot_id}/situations",
+    response_model=list[SituationSummary],
+    tags=["situations"],
+    summary="Lanes carrying flagged orders, worst expected-late first",
+)
+def list_situations(
+    snapshot_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    min_orders: int = Query(
+        situation_service.MIN_SITUATION_ORDERS,
+        ge=2,
+        le=100,
+        description="Below this, a lane is a handful of orders rather than a pattern.",
+    ),
+    _: None = Depends(rate_limit),
+    db: Session = Depends(get_db),
+) -> list[SituationSummary]:
+    return [
+        SituationSummary(**s.as_dict(with_members=False))
+        for s in situation_service.list_situations(
+            db, snapshot_id, limit=limit, min_orders=min_orders
+        )
+    ]
+
+
+@router.get(
+    "/situations/{situation_id}",
+    response_model=SituationDetail,
+    tags=["situations"],
+    summary="One lane situation with its member orders",
+)
+def get_situation(
+    situation_id: str,
+    _: None = Depends(rate_limit),
+    db: Session = Depends(get_db),
+) -> SituationDetail:
+    situation = situation_service.get_situation(db, situation_id)
+    history = analytics_service.lane_context(
+        db, situation.snapshot_id, situation.seller_state, situation.customer_state
+    )
+    return SituationDetail(
+        **situation.as_dict(with_members=True),
+        lane_history=LaneHistoryOut(**history.as_dict()),
+    )
 
 
 @router.get("/orders", response_model=OrderPage, tags=["orders"])
@@ -233,6 +287,50 @@ def start_investigation(
         snapshot_id=payload.snapshot_id,
     )
     return investigation_service.to_schema(db, inv)
+
+
+@router.post(
+    "/situations/{situation_id}/investigations",
+    response_model=InvestigationOut,
+    tags=["agent"],
+    summary="Investigate one lane situation",
+)
+def start_situation_investigation(
+    situation_id: str,
+    request: Request,
+    mode: Literal["llm", "deterministic"] = Query(
+        "llm",
+        description=(
+            "'deterministic' assembles the brief from tool results with no "
+            "provider call. The LLM path falls back to it automatically when "
+            "the provider is unavailable or out of free-tier quota."
+        ),
+    ),
+    _: None = Depends(rate_limit),
+    db: Session = Depends(get_db),
+    session: GuestSession = Depends(get_guest_session),
+) -> InvestigationOut:
+    # The situation must exist before any budget is spent on it.
+    situation_service.get_situation(db, situation_id)
+
+    # Counted when the run starts, not when it finishes. A run that fails
+    # still consumed provider quota, and charging only successes would let a
+    # repeatedly-failing call drain the free tier for free.
+    if mode == "llm":
+        enforce_investigation_budget(db, session)
+        record_investigation_spend(session)
+    started = datetime.now(UTC)
+    investigation = investigation_service.run_situation_and_persist(
+        db, session_id=session.session_id, situation_id=situation_id, mode=mode
+    )
+    log.info(
+        "situation_investigation_request",
+        request_id=getattr(request.state, "request_id", None),
+        situation_id=situation_id,
+        status=investigation.status.value,
+        duration_ms=int((datetime.now(UTC) - started).total_seconds() * 1000),
+    )
+    return investigation_service.to_schema(db, investigation)
 
 
 @router.get("/investigations/{investigation_id}", response_model=InvestigationOut, tags=["agent"])

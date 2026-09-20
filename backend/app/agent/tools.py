@@ -1,4 +1,4 @@
-"""The four investigation tools.
+"""The investigation tools.
 
 This is a closed allowlist. The agent cannot run arbitrary SQL, reach the
 public web, or read any table outside these functions. Each tool returns a
@@ -20,16 +20,26 @@ from app.core.errors import NotFoundError
 from app.core.logging import get_logger
 from app.ml.predictor import predictor
 from app.schemas.investigations import EvidenceItem
-from app.services import analytics, orders, policies
+from app.services import analytics, orders, policies, situations
 
 log = get_logger(__name__)
 
-TOOL_NAMES = (
+ORDER_TOOL_NAMES = (
     "get_order_details",
     "get_delivery_prediction",
     "get_historical_context",
     "get_demo_policy",
 )
+
+SITUATION_TOOL_NAMES = (
+    "get_situation_details",
+    "get_lane_history",
+    "get_situation_policy",
+)
+
+# The closed allowlist. An investigation calls the tools for its own subject;
+# nothing outside this tuple is reachable from the agent at all.
+TOOL_NAMES = ORDER_TOOL_NAMES + SITUATION_TOOL_NAMES
 
 
 @dataclass
@@ -279,3 +289,221 @@ def get_demo_policy(
         for s in sections
     ]
     return ToolResult("get_demo_policy", ok=True, data=data, evidence=evidence)
+
+
+# --------------------------------------------------------------------------
+# Situation tools
+#
+# Same contract as the order tools: deterministic retrieval, every number
+# emitted as a citable evidence item, and failures that say what is missing
+# rather than substituting a plausible value.
+# --------------------------------------------------------------------------
+
+# Members exposed individually to the model. Every member is still used for
+# the membership check in `verify`; this bound only keeps the prompt finite,
+# since one lane can carry over a hundred orders.
+MAX_MEMBERS_IN_PROMPT = 10
+
+
+def get_situation_details(db: Session, situation_id: str) -> ToolResult:
+    """The lane, its flagged orders, and the aggregate the reviewer acts on."""
+    try:
+        situation = situations.get_situation(db, situation_id)
+    except NotFoundError as exc:
+        return ToolResult("get_situation_details", ok=False, error=str(exc))
+    except Exception as exc:
+        return ToolResult(
+            "get_situation_details", ok=False, error=_safe_error(exc, "The situation")
+        )
+
+    shown = situation.members[:MAX_MEMBERS_IN_PROMPT]
+    data = {
+        "situation_id": situation.situation_id,
+        "snapshot_id": situation.snapshot_id,
+        "lane": situation.lane,
+        "n_flagged": situation.n_flagged,
+        "n_high": situation.n_high,
+        "n_escalatable": situation.n_escalatable,
+        "n_lane_total": situation.n_lane_total,
+        "share_of_lane": round(situation.share_of_lane, 4),
+        "expected_late": round(situation.expected_late, 2),
+        "mean_risk": round(situation.mean_risk, 4),
+        "max_risk": round(situation.max_risk, 4),
+        "model_version": situation.model_version,
+        "member_order_ids": [m.order_id for m in situation.members],
+        "highest_risk_members": [
+            {
+                "order_id": m.order_id,
+                "risk_probability": round(m.risk_probability, 4),
+                "days_to_deadline": m.days_to_deadline,
+                "qualifies_under_esc_01": m.escalatable,
+            }
+            for m in shown
+        ],
+        "interpretation": (
+            "'expected_late' is the sum of the member orders' calibrated "
+            "probabilities: how many of these orders the model expects to be "
+            "delivered late. It is a model estimate for this snapshot, not a "
+            "count of known outcomes, and not a judgement about how this lane "
+            "will perform in future."
+        ),
+    }
+
+    qualifies = "qualifies"
+    does_not = "does not qualify"
+    evidence = [
+        EvidenceItem(
+            evidence_id="situation.lane",
+            source="get_situation_details",
+            label="Lane",
+            value=situation.lane,
+        ),
+        EvidenceItem(
+            evidence_id="situation.n_flagged",
+            source="get_situation_details",
+            label="Flagged orders on this lane",
+            value=str(situation.n_flagged),
+        ),
+        EvidenceItem(
+            evidence_id="situation.n_high",
+            source="get_situation_details",
+            label="Flagged orders in the high band",
+            value=str(situation.n_high),
+        ),
+        EvidenceItem(
+            evidence_id="situation.n_escalatable",
+            source="get_situation_details",
+            label="Members qualifying independently under ESC-01",
+            value=str(situation.n_escalatable),
+        ),
+        EvidenceItem(
+            evidence_id="situation.expected_late",
+            source="get_situation_details",
+            label="Expected late deliveries among the flagged orders",
+            value=f"{situation.expected_late:.1f}",
+        ),
+        EvidenceItem(
+            evidence_id="situation.share_of_lane",
+            source="get_situation_details",
+            label="Share of this lane's snapshot volume that is flagged",
+            value=(
+                f"{situation.share_of_lane:.1%} "
+                f"({situation.n_flagged} of {situation.n_lane_total})"
+            ),
+        ),
+        EvidenceItem(
+            evidence_id="situation.mean_risk",
+            source="get_situation_details",
+            label="Mean calibrated risk across members",
+            value=f"{situation.mean_risk:.4f}",
+        ),
+        EvidenceItem(
+            evidence_id="situation.model_version",
+            source="get_situation_details",
+            label="Model version",
+            value=str(situation.model_version),
+        ),
+    ]
+    for i, member in enumerate(shown, start=1):
+        verdict = qualifies if member.escalatable else does_not
+        evidence.append(
+            EvidenceItem(
+                evidence_id=f"situation.member_{i}",
+                source="get_situation_details",
+                label=f"Member order {member.order_id}",
+                value=(
+                    f"calibrated risk {member.risk_probability:.4f}, "
+                    f"{member.days_to_deadline:.0f} days to the promised date, "
+                    f"{verdict} under ESC-01"
+                ),
+            )
+        )
+    return ToolResult("get_situation_details", ok=True, data=data, evidence=evidence)
+
+
+def get_lane_history(db: Session, situation_id: str) -> ToolResult:
+    """As-of late rate for the lane, against the marketplace baseline."""
+    try:
+        snapshot_id, seller, customer = situations.parse_situation_id(situation_id)
+        context = analytics.lane_context(db, snapshot_id, seller, customer)
+    except NotFoundError as exc:
+        return ToolResult("get_lane_history", ok=False, error=str(exc))
+    except Exception as exc:
+        return ToolResult(
+            "get_lane_history", ok=False, error=_safe_error(exc, "The lane history")
+        )
+
+    data = {"lane_history": context.as_dict()}
+    evidence: list[EvidenceItem] = []
+    if context.available:
+        evidence.append(
+            EvidenceItem(
+                evidence_id="lane.late_rate",
+                source="get_lane_history",
+                label=context.label,
+                value=(
+                    f"{context.late_rate:.1%} over {context.sample_size} orders "
+                    "delivered before the snapshot"
+                ),
+            )
+        )
+        if context.baseline_rate is not None:
+            evidence.append(
+                EvidenceItem(
+                    evidence_id="lane.baseline_rate",
+                    source="get_lane_history",
+                    label="Marketplace late rate over the same window",
+                    value=(
+                        f"{context.baseline_rate:.1%} over "
+                        f"{context.baseline_sample} orders"
+                    ),
+                )
+            )
+    else:
+        evidence.append(
+            EvidenceItem(
+                evidence_id="lane.history_unavailable",
+                source="get_lane_history",
+                label="Lane history",
+                value="; ".join(context.caveats),
+            )
+        )
+    return ToolResult("get_lane_history", ok=True, data=data, evidence=evidence)
+
+
+def get_situation_policy(*, n_escalatable: int, n_flagged: int) -> ToolResult:
+    """The backend's own reading of ESC-05 for this lane."""
+    try:
+        sections = policies.situation_applicable_sections(n_escalatable=n_escalatable)
+        permitted, determination = policies.situation_escalation_permitted(
+            n_escalatable=n_escalatable, n_flagged=n_flagged
+        )
+        version = policies.policy_version()
+    except policies.PolicyUnavailableError as exc:
+        return ToolResult("get_situation_policy", ok=False, error=str(exc))
+
+    data = {
+        "policy_version": version,
+        "escalation_permitted_by_policy": permitted,
+        "policy_determination": determination,
+        "sections": [
+            {"section_id": s.section_id, "title": s.title, "text": s.text}
+            for s in sections
+        ],
+    }
+    evidence = [
+        EvidenceItem(
+            evidence_id="policy.determination",
+            source="get_situation_policy",
+            label="Policy determination",
+            value=determination,
+            policy_section=determination.split(":")[0],
+        ),
+        EvidenceItem(
+            evidence_id="policy.version",
+            source="get_situation_policy",
+            label="Policy version",
+            value=version,
+        ),
+    ]
+    return ToolResult("get_situation_policy", ok=True, data=data, evidence=evidence)

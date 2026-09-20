@@ -130,7 +130,13 @@ def approve_proposal(db: Session, proposal_id: str, session_id: str) -> Decision
         proposal_id=proposal.proposal_id,
         session_id=session_id,
         investigation_id=proposal.investigation_id,
+        subject_type=proposal.subject_type,
+        subject_id=proposal.subject_id,
         order_id=proposal.order_id,
+        # The orders this approval actually covers. Recorded on the ticket so
+        # the scope of an authorised action is auditable rather than implied
+        # by the lane name.
+        member_order_ids=proposal.member_order_ids,
         snapshot_id=proposal.snapshot_id,
         status="open",
         action_type=proposal.action_type,
