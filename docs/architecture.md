@@ -11,6 +11,7 @@
          FastAPI modular monolith      (Render Docker web service)
          ├── guest session + rate/budget guard
          ├── as-of orders and snapshot analytics
+         ├── lane situations (grouped flagged orders)
          ├── model artifact + prediction endpoint
          ├── LangGraph bounded investigation
          ├── proposals -> approval -> tickets
@@ -149,14 +150,62 @@ negligible memory on a 512 MB container. Two details matter:
 
 ---
 
+## 3b. Situations: the unit a person can act on
+
+The v1 product was entirely order-scoped. The 2018-08-15 snapshot flags 395
+orders and the only action was to open them one at a time, against a free tier
+that allows roughly 100 investigations a day. The unit of work was wrong.
+
+Grouping those orders by lane (`seller_state -> customer_state`) turns 395
+orders into 37 lanes, five of which hold 73% of them. A lane is also the unit
+an escalation is actually about: you raise a route with a carrier.
+
+**What the data did and did not support.** Three premises were measured before
+any of this was built. Risk is genuinely concentrated within a period - the
+worst 10 sellers carry 13.4% of late orders in 3.3% of volume. But
+**seller-level risk does not persist** across the cutoff (Spearman +0.105,
+p = 0.13), so *no seller leaderboard was built*: it would have been the easiest
+feature to demo and it would have been ranking noise. Lane persistence is real
+but weak (+0.286, p = 0.0093), which is enough to show as background and not
+enough to rank on. Ranking is therefore driven by current model output, and a
+situation makes a **descriptive** claim about one snapshot, never a forecast of
+lane quality.
+
+**Ranking quantity.** Situations are ordered by `expected_late`, the sum of
+member calibrated probabilities - how many of these orders the model expects to
+arrive late. That sum is only meaningful because the scores were calibrated;
+adding up `scale_pos_weight`-inflated raw outputs would produce a number with
+no units. The calibration work pays for itself here.
+
+**One threshold, composed.** ESC-05 permits a lane escalation when at least
+three members each independently qualify under ESC-01. It defines no new risk
+threshold, because two thresholds that must agree are two thresholds that
+drift. The list view computes that count in SQL and the detail view in Python;
+a test asserts they are equal.
+
+### Deterministic briefs
+
+Every situation can be briefed with **no provider call at all**: the same
+verified tool results, restated, with no generated prose. This is not a
+degraded mode bolted on, it is what makes the product usable. The free tier
+allows about 100 investigations a day; one snapshot flags 395 orders. The LLM
+path falls back to it automatically on any provider failure, and the report
+says which produced it. It also gives the agent benchmark a real floor: the
+model has to beat something, not beat nothing.
+
+---
+
 ## 4. The agent
 
 ```
-gather_order → gather_prediction → gather_history → gather_policy
-             → synthesize → verify → finalize
+gather_order     → gather_prediction  → gather_history → gather_policy
+                 → synthesize → verify → finalize
+
+gather_situation → gather_lane_history → gather_policy
+                 → synthesize → verify → finalize
 ```
 
-A fixed acyclic graph. It cannot loop, cannot call a tool outside the
+Two fixed acyclic graphs, one per subject. It cannot loop, cannot call a tool outside the
 allowlist, and makes **exactly one** LLM call — at `synthesize`.
 
 ### Why retrieval is deterministic
@@ -173,7 +222,11 @@ than compute.
 
 ### `verify` is the safety gate
 
-Three checks, each of which can only *reduce* what the report claims:
+It lives in `agent/verification.py`, apart from both graphs, because an order
+investigation and a situation investigation must be verified by *the same*
+code. Two copies of a safety check are two checks that drift.
+
+Four checks, each of which can only *reduce* what the report claims:
 
 1. Every cited `evidence_id` must exist in what a tool actually returned.
    Facts citing unknown ids are dropped and the removal is recorded in
@@ -183,6 +236,9 @@ Three checks, each of which can only *reduce* what the report claims:
 3. The recommendation may not exceed what the backend's own reading of the
    policy permits. A model that recommends escalation against policy is
    downgraded to `monitor`.
+4. **Membership**: a situation report may name only that situation's member
+   orders. A statement naming an order from another lane is removed, not
+   merely flagged - naming a foreign id is evidence the model invented one.
 
 This is why prompt injection is contained. Injected text can influence the
 generated prose; it cannot make an unsupported number survive verification, and
@@ -230,6 +286,9 @@ rather than showing a broken page.
 | Feature documents only for scorable orders | 93 MB of a 500 MB free database for no capability | Storing all 96k |
 | Deterministic policy lookup | Eight short sections; embeddings would be theatre | A vector database |
 | Gemini free tier | The only zero-budget option | A paid provider |
+| Lane situations, no seller leaderboard | Seller risk does not persist (rho +0.105, p 0.13); lane concentration of the flagged queue does | A "worst sellers" page, which would have ranked noise |
+| Deterministic briefs | Keeps the product usable past ~100 daily investigations, and gives the benchmark a floor | LLM-only, which fails exactly when someone is trying the demo |
+| ESC-05 composes ESC-01 | One risk threshold in the system | A separate lane threshold to drift out of step |
 | Snapshot-simulated model selection | Pooled Precision@K measures 50 orders out of 19k; the product ranks ~1,500 at a time | Selecting on a single pooled slice |
 
 ---
