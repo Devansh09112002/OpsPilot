@@ -195,6 +195,143 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 7
 
+  compose:
+    name: Docker Compose stack
+    runs-on: ubuntu-latest
+    # The claim being tested is "clone it and run docker compose up". That is
+    # the one deliverable the development machine cannot verify, because
+    # Docker cannot be installed on it. CI has Docker, so the claim is proved
+    # here or it is not made.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the pipeline dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Produce the dataset the ingest step mounts
+        run: |
+          python -m data_pipeline.fetch
+          python -m data_pipeline.audit
+
+      - name: Build the images
+        run: docker compose build
+
+      - name: Start the stack
+        run: |
+          docker compose up -d db api web
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/api/v1/health >/dev/null 2>&1; then
+              echo "api is up after ${i} attempts"; break
+            fi
+            sleep 5
+          done
+
+      - name: Apply migrations and load the data
+        run: docker compose run --rm ingest
+
+      - name: The API is healthy and serving real rows
+        run: |
+          set -euo pipefail
+          ready=$(curl -fsS http://localhost:8000/api/v1/health/ready)
+          echo "$ready"
+          echo "$ready" | python -c "
+          import json, sys
+          r = json.load(sys.stdin)
+          assert r['status'] == 'ok', r
+          for check in ('database', 'model', 'policy'):
+              assert r['checks'][check]['ok'], (check, r['checks'][check])
+          print('health: database, model and policy all ok')
+          "
+          snapshots=$(curl -fsS http://localhost:8000/api/v1/snapshots)
+          echo "$snapshots" | python -c "
+          import json, sys
+          rows = json.load(sys.stdin)
+          assert len(rows) == 3, rows
+          print(f'snapshots: {[r[\"snapshot_id\"] for r in rows]}')
+          "
+
+      - name: The full situation journey works inside the stack
+        run: |
+          set -euo pipefail
+          # No LLM key is configured in CI, so the deterministic path is used.
+          # That is the point: the whole journey has to work with no provider.
+          python - <<'PY'
+          import json, urllib.request, http.cookiejar
+
+          base = "http://localhost:8000/api/v1"
+          opener = urllib.request.build_opener(
+              urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+          )
+
+          def call(path, method="GET"):
+              req = urllib.request.Request(base + path, method=method)
+              with opener.open(req, timeout=120) as r:
+                  return json.loads(r.read() or "null")
+
+          call("/tickets")  # establish the guest session
+          snapshot = call("/snapshots")[-1]["snapshot_id"]
+          situations = call(f"/snapshots/{snapshot}/situations?limit=5")
+          assert situations, "no lane situations were produced"
+          print(f"situations: {len(situations)} lanes, top = {situations[0]['lane']}")
+
+          escalatable = [s for s in situations if s["n_escalatable"] >= 3]
+          target = (escalatable or situations)[0]["situation_id"]
+
+          inv = call(f"/situations/{target}/investigations?mode=deterministic", "POST")
+          assert inv["status"] == "completed", inv
+          assert inv["generated_by"] == "deterministic", inv
+          assert inv["facts"], "the brief cited nothing"
+          known = {e["evidence_id"] for e in inv["evidence"]}
+          for fact in inv["facts"]:
+              assert set(fact["evidence_ids"]) <= known, fact
+          print(f"investigation: {inv['status']}, {len(inv['facts'])} cited facts")
+
+          if inv.get("proposal"):
+              before = call("/tickets")["total"]
+              call(f"/proposals/{inv['proposal']['proposal_id']}/approve", "POST")
+              after = call("/tickets")
+              assert after["total"] == before + 1, after
+              ticket = after["items"][0]
+              covered = len(ticket.get("member_order_ids") or [])
+              print(f"approval: ticket {ticket['ticket_id']} covering {covered} orders")
+          else:
+              print("approval: lane is monitored, no proposal (policy-correct)")
+          PY
+
+      - name: The frontend is served and points at the API
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o /tmp/index.html -w "%{http_code}" http://localhost:5173/)
+          test "$code" = "200"
+          grep -q "OpsPilot" /tmp/index.html
+          # A deep link must resolve too, or the SPA fallback is missing.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/situations)" = "200"
+          echo "frontend: index and deep link both 200"
+
+      - name: No credential reached the built bundle
+        run: |
+          set -euo pipefail
+          docker compose cp web:/usr/share/nginx/html/ ./served || true
+          if grep -rlE "AIza[0-9A-Za-z_-]{20}|AQ\.[A-Za-z0-9_-]{20}|postgres(ql)?://[^ \"']*:[^ \"']*@" ./served 2>/dev/null; then
+            echo "a credential-shaped string is in the served bundle"; exit 1
+          fi
+          echo "bundle: clean"
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose logs --tail 120
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
   security:
     name: Secret scan
     runs-on: ubuntu-latest
