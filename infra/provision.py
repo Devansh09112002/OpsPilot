@@ -275,8 +275,13 @@ def _owner_id(client: httpx.Client) -> str:
     owners = resp.json()
     if not owners:
         raise ProvisionError("The Render account has no owner record.")
-    owner = owners[0]["owner"]
-    print(f"  owner: {owner.get('name', owner['id'])}")
+    # Render wraps list items as {"owner": {...}, "cursor": "..."}; tolerate a
+    # bare object too rather than KeyError on a shape change.
+    first = owners[0]
+    owner = first.get("owner", first) if isinstance(first, dict) else first
+    if not isinstance(owner, dict) or "id" not in owner:
+        raise ProvisionError(f"Unexpected /owners response shape: {str(first)[:200]}")
+    print(f"  owner: {owner.get('name') or owner['id']}")
     return owner["id"]
 
 
@@ -354,9 +359,11 @@ def provision_render(env: dict[str, str]) -> dict[str, str]:
                 "branch": "main",
                 "autoDeploy": "yes",
                 "serviceDetails": {
-                    "env": "docker",
+                    # Render's API field is "runtime", not "env".
+                    "runtime": "docker",
                     "region": REGION_RENDER,
                     "plan": "free",
+                    "numInstances": 1,
                     "healthCheckPath": "/api/v1/health",
                     "envSpecificDetails": {
                         "dockerfilePath": "./backend/Dockerfile",
@@ -422,8 +429,18 @@ def provision_render(env: dict[str, str]) -> dict[str, str]:
                        json=_env_var_list(api_env)).raise_for_status()
             print(f"  CORS_ORIGINS set to {web_url}")
 
+        # Env-var changes are not deployed automatically, so a deploy is
+        # triggered explicitly. 201 (created) and 202 (queued) are both success.
         for service in (api, web):
-            client.post(f"/services/{service['id']}/deploys", json={}).raise_for_status()
+            resp = client.post(
+                f"/services/{service['id']}/deploys",
+                json={"clearCache": "do_not_clear"},
+            )
+            if resp.status_code >= 400:
+                raise ProvisionError(
+                    f"Render refused to deploy {service.get('name', service['id'])} "
+                    f"(HTTP {resp.status_code}): {resp.text[:300]}"
+                )
         print("  deploys triggered for both services")
 
     write_env({"OPSPILOT_API_URL": api_url, "OPSPILOT_WEB_URL": web_url})
