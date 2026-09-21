@@ -11,7 +11,10 @@
 
   --text: #e6e9ee;
   --text-muted: #9aa4b2;
-  --text-faint: #6b7686;
+  /* Raised from #6b7686, which measured 3.39:1 on the darkest
+     surface against the 4.5:1 WCAG AA requirement. Now 4.65:1
+     at worst; axe-core enforces it on every screen. */
+  --text-faint: #828d9d;
 
   --accent: #4b8bf5;
   --accent-hover: #6a9ef7;
@@ -119,7 +122,9 @@ code, .mono { font-family: var(--mono); font-size: 0.86em; }
   font-weight: 500;
 }
 .nav a:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
-.nav a.active { background: var(--accent-soft); color: var(--accent); }
+/* The tinted active background lifts the floor, so the plain accent
+   measured only 4.29:1 on it. The hover shade clears AA at 5.33:1. */
+.nav a.active { background: var(--accent-soft); color: var(--accent-hover); }
 
 .main {
   flex: 1;
@@ -363,7 +368,9 @@ tbody tr.clickable:hover { background: var(--surface-2); }
   font-family: var(--mono);
   font-size: 0.68rem;
   background: var(--accent-soft);
-  color: var(--accent);
+  /* Accent on its own tinted background is 4.29:1. The hover shade is
+     5.33:1 and clears AA; same fix as the active nav item. */
+  color: var(--accent-hover);
   border-radius: 4px;
   padding: 0.05rem 0.35rem;
 }
@@ -479,3 +486,16 @@ tbody tr.clickable:hover { background: var(--surface-2); }
   margin-top: 0.2rem;
 }
 .factor__bar span { display: block; height: 100%; border-radius: 2px; }
+
+/* ---------- inline links in running text ----------
+   axe flagged `link-in-text-block`: a link inside a paragraph that differs
+   from the surrounding text only by colour is invisible to anyone who does
+   not perceive that difference. Links inside prose are underlined; links
+   that are their own block (nav, table cells, buttons) are not, because
+   there is no surrounding text to be confused with. */
+p a,
+.limitation a,
+.fact a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}

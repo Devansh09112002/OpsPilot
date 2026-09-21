@@ -185,6 +185,8 @@ jobs:
 
       - name: Run E2E tests
         working-directory: frontend
+        # Includes the axe-core accessibility suite: contrast, labelling,
+        # landmarks and heading order on every screen, WCAG 2.1 A and AA.
         run: npx playwright test
 
       - name: Upload the Playwright report

@@ -119,7 +119,7 @@ export default function SituationDetail() {
       <section className="card">
         <div className="row">
           <div>
-            <h2 style={{ marginBottom: "0.2rem" }}>Lane {situation.lane}</h2>
+            <h1 style={{ marginBottom: "0.2rem" }}>Lane {situation.lane}</h1>
             <p className="muted" style={{ margin: 0 }}>
               Snapshot {situation.snapshot_id} &middot; model{" "}
               <code>{situation.model_version ?? "unavailable"}</code>
@@ -152,7 +152,7 @@ export default function SituationDetail() {
           </div>
         </div>
 
-        <h3 className="faint">Lane history</h3>
+        <h2 className="faint">Lane history</h2>
         {history.available ? (
           <p style={{ marginTop: 0 }}>
             <strong>{formatRisk(history.late_rate ?? 0)}</strong> of{" "}
@@ -179,7 +179,7 @@ export default function SituationDetail() {
       </section>
 
       <section className="card">
-        <h3 style={{ marginTop: 0 }}>AI investigation</h3>
+        <h2 style={{ marginTop: 0 }}>AI investigation</h2>
 
         {!investigation && !running && (
           <>
@@ -252,9 +252,9 @@ export default function SituationDetail() {
 
             {investigation.facts.length > 0 && (
               <div>
-                <h3 className="faint" style={{ marginBottom: "0.5rem" }}>
+                <h2 className="faint" style={{ marginBottom: "0.5rem" }}>
                   Findings
-                </h3>
+                </h2>
                 {investigation.facts.map((f, i) => (
                   <div className="fact" key={i}>
                     {f.statement}
@@ -272,9 +272,9 @@ export default function SituationDetail() {
 
             {investigation.limitations.length > 0 && (
               <div>
-                <h3 className="faint" style={{ marginBottom: "0.5rem" }}>
+                <h2 className="faint" style={{ marginBottom: "0.5rem" }}>
                   Limitations
-                </h3>
+                </h2>
                 {investigation.limitations.map((l, i) => (
                   <div className="limitation" key={i}>
                     {l}
@@ -284,9 +284,9 @@ export default function SituationDetail() {
             )}
 
             <div>
-              <h3 className="faint" style={{ marginBottom: "0.3rem" }}>
+              <h2 className="faint" style={{ marginBottom: "0.3rem" }}>
                 Recommendation
-              </h3>
+              </h2>
               <p style={{ marginBottom: "0.25rem" }}>
                 <strong>
                   {RECOMMENDATION_LABEL[investigation.recommendation ?? ""] ??
@@ -331,7 +331,7 @@ export default function SituationDetail() {
 
       {proposal && (
         <section className="card" data-testid="situation-proposal">
-          <h3 style={{ marginTop: 0 }}>Proposed action</h3>
+          <h2 style={{ marginTop: 0 }}>Proposed action</h2>
           <p>{proposal.reason}</p>
           <p className="muted small">
             This escalation would cover{" "}
@@ -379,9 +379,9 @@ export default function SituationDetail() {
       )}
 
       <section className="card">
-        <h3 style={{ marginTop: 0 }}>
+        <h2 style={{ marginTop: 0 }}>
           Member orders ({situation.members.length})
-        </h3>
+        </h2>
         <div className="table-wrap">
           <table>
             <thead>

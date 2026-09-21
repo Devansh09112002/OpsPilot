@@ -227,7 +227,7 @@ export default function OrderInvestigation() {
           </div>
 
           <div className="card">
-            <h2 style={{ marginBottom: "0.7rem" }}>Order as of {formatDate(order.snapshot_at)}</h2>
+            <h1 style={{ marginBottom: "0.7rem" }}>Order as of {formatDate(order.snapshot_at)}</h1>
             <dl className="kv">
               <dt>Purchased</dt>
               <dd>{formatDateTime(order.order_purchase_timestamp)}</dd>

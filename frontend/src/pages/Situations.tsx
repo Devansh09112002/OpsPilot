@@ -83,7 +83,7 @@ export default function Situations() {
     <section>
       <div className="row">
         <div>
-          <h2>Lane situations</h2>
+          <h1>Lane situations</h1>
           <p className="muted" style={{ maxWidth: "62ch" }}>
             Flagged orders grouped by the lane they travel, ranked by how many
             risk they carry. A lane is one decision: you
