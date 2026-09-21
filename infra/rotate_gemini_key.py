@@ -97,6 +97,33 @@ def verify_key_directly(key: str, models: list[str]) -> str:
     )
 
 
+def deployed_model_chain(token: str) -> list[str]:
+    """The model chain the deployed service actually uses.
+
+    `.env` need not list the fallbacks - the deployment is the authority, and
+    testing only the primary model would fail the rotation whenever that one
+    model happens to be out of daily quota, even though the new key is fine.
+    """
+    with _render(token) as client:
+        service = _find_service(client, API_SERVICE)
+        if service is None:
+            return []
+        rows = client.get(
+            f"/services/{service['id']}/env-vars", params={"limit": 100}
+        ).json()
+        values = {row["envVar"]["key"]: row["envVar"].get("value", "") for row in rows}
+
+    chain: list[str] = []
+    primary = values.get("LLM_MODEL", "").strip()
+    if primary:
+        chain.append(primary)
+    for name in values.get("LLM_MODEL_FALLBACKS", "").split(","):
+        name = name.strip()
+        if name and name not in chain:
+            chain.append(name)
+    return chain
+
+
 def update_render(token: str, key: str) -> str:
     """Set GEMINI_API_KEY on the deployed API service and redeploy it."""
     with _render(token) as client:
@@ -195,12 +222,18 @@ def main() -> int:
         raise SystemExit("OPSPILOT_API_URL is not configured in .env")
 
     old_key = env.get("GEMINI_API_KEY", "")
-    models = [env.get("LLM_MODEL", "gemini-3.5-flash-lite")]
-    models += [
-        m.strip()
-        for m in env.get("LLM_MODEL_FALLBACKS", "").split(",")
-        if m.strip() and m.strip() not in models
-    ]
+    # Prefer the deployed chain; fall back to .env only if Render is unreachable.
+    try:
+        models = deployed_model_chain(token)
+    except Exception:
+        models = []
+    if not models:
+        models = [env.get("LLM_MODEL", "gemini-3.5-flash-lite")]
+        models += [
+            m.strip()
+            for m in env.get("LLM_MODEL_FALLBACKS", "").split(",")
+            if m.strip() and m.strip() not in models
+        ]
 
     print("=" * 66)
     print("Gemini API key rotation")
