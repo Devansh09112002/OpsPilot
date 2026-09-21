@@ -243,10 +243,10 @@ worst failure mode to discover live:
 
 ## Open items
 
-- **Rotate the Gemini API key.** It was supplied through a chat transcript and
-  must be treated as exposed. Create a new one at
-  <https://aistudio.google.com/apikey>, set it on the `opspilot-api` service in
-  Render, and delete the old one. Nothing else needs to change.
+- ~~Rotate the Gemini API key.~~ **Done 21 September 2026.** Rotated with
+  `infra/rotate_gemini_key.py`, the replacement verified on the public URL
+  (`generated_by=model`), the original then deleted and production
+  re-verified afterwards (37/37). The replacement was never displayed.
 - The repository is private, so the "public source repository" deliverable is
   not met until it is made public. It is verifiably clean: every live
   credential was compared against all 745 objects in history and appears in
@@ -258,7 +258,8 @@ worst failure mode to discover live:
 ## Security note
 
 The Gemini key currently in `.env` was supplied through the chat transcript and
-must be treated as exposed. **Rotate it at <https://aistudio.google.com/apikey>
+was rotated on 21 September 2026 and the original deleted. The replacement was
+entered through a hidden prompt and has never appeared in a transcript.
 before any public release**, and set the replacement only in Render's
 environment configuration.
 

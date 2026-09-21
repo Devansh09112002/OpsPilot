@@ -51,7 +51,8 @@ Ticked only when run and inspected, not when written.
 - [x] Deployed smoke test green (37/37)
 - [x] Public URL recorded in the README
 - [x] Keepalive configured against the live API
-- [ ] **Gemini key rotated** — it came through a chat transcript
+- [x] **Gemini key rotated** (21 September 2026) — verified on the public URL before
+      the original was deleted, and re-verified after
 - [ ] Repository made public (optional; currently private by choice)
 
 ## Stage 5 — Lane situations (v2)
@@ -72,5 +73,4 @@ Ticked only when run and inspected, not when written.
 - [x] Verified on the public URL (37/37 smoke, 20 browser journeys)
 
 ## Release blockers still open
-- **Rotate the Gemini API key** before sharing the demo. Create a new key,
-  set it on the `opspilot-api` Render service, delete the old one.
+- None. The Gemini key rotation, the last blocker, is complete and verified.

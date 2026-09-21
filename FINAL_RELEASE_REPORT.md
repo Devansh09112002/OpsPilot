@@ -134,27 +134,45 @@ the deployed cookie was secure only because two variables happened to be set
 on Render — and forgetting `SameSite=none` breaks every cross-origin session
 silently. Production now hardens itself by default.
 
-### Outstanding: Gemini API key rotation
+### Gemini API key rotation — **completed 21 September 2026**
 
-The current key was supplied through a chat transcript and must be treated as
-exposed. **It is not in the repository or its history** — the exposure is the
-transcript alone.
+The original key was supplied through a chat transcript and had to be treated
+as exposed. It was never in the repository or its history; the transcript was
+the whole exposure.
 
-`infra/rotate_gemini_key.py` performs the rotation and verifies it *before*
-the old key is revoked: it checks the new key against the provider, writes it
-to `.env` and the Render service, waits for the redeploy, then runs a real
-investigation on the public URL and requires `generated_by=model`. A
-deterministic fallback counts as failure. Every failure path stops without
-revoking anything.
+Rotated with `infra/rotate_gemini_key.py`, which verifies before it lets
+anything be revoked. Recorded result:
+
+- the replacement was accepted by the provider before any change was made
+- `.env` and the Render service were updated and the API redeployed
+- the deployed API reported `llm_configured=true`
+- a real investigation on the public URL returned `generated_by=model`
+
+The old key was then deleted at the provider, and production was re-checked
+**afterwards** — the sequence that actually proves the rotation, because a
+cached connection or stale worker would have shown up as a failure once the
+old key no longer existed:
+
+```
+llm_configured : True
+status         : completed
+generated_by   : model      <- the provider answered, not the fallback
+cited facts    : 5
+evidence items : 22
+37/37 checks passed
+```
+
+The replacement key was entered through a hidden prompt and never appeared in
+any transcript, log or command line.
 
 ### Tokens that can be revoked after release
 
 | Credential | Recommendation |
 |---|---|
 | `SUPABASE_ACCESS_TOKEN` | **Revoke after release.** A management token with full account access, needed only for provisioning, seeding and migrations. Reissue when needed. |
-| `RENDER_API_KEY` | **Revoke after the key rotation.** Full account access, needed only for deploys and the rotation script. |
+| `RENDER_API_KEY` | **Safe to revoke now** — the rotation is done. Full account access, needed only for the rotation script and manual deploys; auto-deploy from GitHub `main` is on for both services and is unaffected. |
 | `SUPABASE_DB_PASSWORD` | Keep — the running application needs it. It exists only in the Render service environment and the local `.env`. |
-| `GEMINI_API_KEY` | Rotate now; see above. |
+| `GEMINI_API_KEY` | **Rotated and verified 21 September 2026.** The original is deleted. |
 
 ---
 
@@ -202,29 +220,22 @@ ingest — so the artefacts are reproducible from source, not just present.
 
 ## 7. Actions that require you
 
-1. **Rotate the Gemini key.** In your terminal:
-   ```
-   cd E:\OpsPilot
-   .venv\Scripts\python.exe -m infra.rotate_gemini_key
-   ```
-   Create a key at <https://aistudio.google.com/apikey>, paste it at the hidden
-   prompt. The script does the rest and tells you when it is safe to delete
-   the old key. Delete it only after it says so.
-
-2. **Decide on repository visibility.** The repository is ready to be public
+1. **Decide on repository visibility.** The repository is ready to be public
    and has not been made public. That is your call.
 
-3. **Optional: revoke the Supabase and Render tokens** once no further
+2. **Optional: revoke the Supabase and Render tokens** once no further
    provisioning or deploys are planned (see §4).
 
-4. **Optional: record the demo walkthrough** — the project plan asks for one
+3. **Optional: record the demo walkthrough** — the project plan asks for one
    and it cannot be produced here.
 
 ---
 
 ## 8. Readiness for public release
 
-**Ready, subject to the key rotation in §7.1.**
+**Ready.** The one release blocker — the exposed provider key — was rotated
+and verified on 21 September 2026, and the original deleted. Nothing else is
+outstanding that is not a preference.
 
 The application is complete, deployed and verified on its public URL. The
 repository is clean of credentials in both its working tree and its full
