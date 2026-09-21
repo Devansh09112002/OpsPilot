@@ -247,11 +247,12 @@ worst failure mode to discover live:
   `infra/rotate_gemini_key.py`, the replacement verified on the public URL
   (`generated_by=model`), the original then deleted and production
   re-verified afterwards (37/37). The replacement was never displayed.
-- The repository is private, so the "public source repository" deliverable is
-  not met until it is made public. It is verifiably clean: every live
-  credential was compared against all 745 objects in history and appears in
-  none of them. `LICENSE` (MIT, with the dataset's CC BY-NC-SA terms stated
-  separately) is in place.
+- ~~The repository is private.~~ **Made public 21 September 2026** at
+  <https://github.com/Devansh09112002/OpsPilot>, under MIT with the
+  dataset's CC BY-NC-SA terms in `NOTICE`. Before publishing, every live
+  credential was re-checked against all 65 commits (absent from every
+  one), and the Supabase project ref was dropped from the deployment
+  table - not a credential, but not worth advertising.
 
 ---
 

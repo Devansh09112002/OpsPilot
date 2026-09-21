@@ -53,7 +53,8 @@ Ticked only when run and inspected, not when written.
 - [x] Keepalive configured against the live API
 - [x] **Gemini key rotated** (21 September 2026) — verified on the public URL before
       the original was deleted, and re-verified after
-- [ ] Repository made public (optional; currently private by choice)
+- [x] Repository made public (21 September 2026), MIT detected, topics and
+      homepage set, anonymous access verified
 
 ## Stage 5 — Lane situations (v2)
 - [x] Premises measured before building: seller risk does **not** persist

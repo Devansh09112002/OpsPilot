@@ -3,6 +3,7 @@
 **Date:** 21 September 2026
 **Release tag:** `v2.1-quality` (rollback points: `v2.0-verified`, `v1.0-baseline`)
 **Live application:** <https://opspilot-web-hj6k.onrender.com>
+**Source:** <https://github.com/Devansh09112002/OpsPilot> (public, MIT)
 **API:** <https://opspilot-api-pg66.onrender.com>
 
 ---
@@ -220,13 +221,10 @@ ingest — so the artefacts are reproducible from source, not just present.
 
 ## 7. Actions that require you
 
-1. **Decide on repository visibility.** The repository is ready to be public
-   and has not been made public. That is your call.
-
-2. **Optional: revoke the Supabase and Render tokens** once no further
+1. **Optional: revoke the Supabase and Render tokens** once no further
    provisioning or deploys are planned (see §4).
 
-3. **Optional: record the demo walkthrough** — the project plan asks for one
+2. **Optional: record the demo walkthrough** — the project plan asks for one
    and it cannot be produced here.
 
 ---
