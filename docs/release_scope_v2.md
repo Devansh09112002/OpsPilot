@@ -1,6 +1,6 @@
 # Release v2 — Situation triage
 
-Scope record written **before** implementation, per the upgrade brief. Targets
+Scope record written **before** implementation. Targets
 in section 6 are pre-registered: they were fixed before any v2 evaluation ran.
 
 ---

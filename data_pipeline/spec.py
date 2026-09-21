@@ -2,7 +2,7 @@
 
 Every constant here was fixed after the initial data inspection
 (see docs/data_audit.md) and BEFORE any model comparison was run, as
-required by OpsPilot_Project_Plan.md section 3.4. Changing a split date
+required by the frozen evaluation protocol. Changing a split date
 invalidates the published evaluation in docs/model_report.md.
 """
 
