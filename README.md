@@ -10,9 +10,19 @@ whole shipping lane — and proposes an escalation a human must approve.
 > takes up to a minute. The app waits and tells you it is waking rather than
 > showing a broken page.
 
+![Lane situations](docs/screenshots/live-situations.png)
+*The 2018-08-15 snapshot flags 340 orders. Grouped by lane they are 18
+situations, and the top two hold half of them.*
+
+![A lane brief](docs/screenshots/live-lane-brief.png)
+*A lane assessment. Every statement carries the evidence ids it rests on, and
+the backend removes any that cite evidence no tool returned.*
+
 ![Risk queue](docs/screenshots/live-risk-queue.png)
+*The order-level queue the situations are built from.*
 
 ![AI investigation](docs/screenshots/live-investigation.png)
+*A single-order investigation, with per-order risk attribution.*
 
 ---
 
@@ -306,6 +316,13 @@ See [`docs/deployment.md`](docs/deployment.md).
 
 - Trained on 2016–2018 Brazilian marketplace data; it does not transfer
   elsewhere without retraining.
+- **A lane's risk load overstates the count of orders that were actually
+  late, by about 1.5× on the held-out snapshots**
+  ([`docs/snapshot_calibration.md`](docs/snapshot_calibration.md)). The
+  calibrator is fitted on a period with a 10.8% late rate and applied to one
+  at 3.0%. It is reported rather than retuned on test data, the wording
+  throughout says so, and what survives the bias — ranking lanes against each
+  other — is what the product uses it for.
 - The score ranks risk. It does not diagnose a cause, and neither the report
   nor the agent presents a correlation as one.
 - Absolute precision is modest. Delivery lateness is only partly predictable
@@ -313,6 +330,17 @@ See [`docs/deployment.md`](docs/deployment.md).
 - No user accounts: ticket history is tied to a guest-session cookie.
 - Free-tier hosting sleeps when idle; the first visit after a quiet period
   takes up to a minute.
+
+---
+
+## Licence
+
+Source code: **MIT** — see [`LICENSE`](LICENSE).
+
+The Olist dataset is **not** MIT and is not redistributed here; it is fetched
+at build time and carries CC BY-NC-SA 4.0 (non-commercial). The trained
+artefact in `artifacts/` is derived from it and inherits those terms. Both are
+stated in `LICENSE`.
 
 ---
 

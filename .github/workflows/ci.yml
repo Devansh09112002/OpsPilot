@@ -239,28 +239,29 @@ jobs:
       - name: The API is healthy and serving real rows
         run: |
           set -euo pipefail
-          ready=$(curl -fsS http://localhost:8000/api/v1/health/ready)
-          echo "$ready"
-          echo "$ready" | python -c "
-          import json, sys
-          r = json.load(sys.stdin)
+          curl -fsS http://localhost:8000/api/v1/health/ready -o /tmp/ready.json
+          curl -fsS http://localhost:8000/api/v1/snapshots -o /tmp/snapshots.json
+          cat /tmp/ready.json
+          # A literal heredoc: no shell or YAML escaping inside, which is
+          # what broke the first attempt at this step.
+          python - <<'PY'
+          import json
+
+          ready = json.load(open("/tmp/ready.json"))
           # 'degraded' is the correct status here: CI configures no provider
           # key, and readiness is expected to say so rather than claim ok.
-          assert r['status'] in ('ok', 'degraded'), r
-          for check in ('database', 'model', 'policy'):
-              assert r['checks'][check]['ok'], (check, r['checks'][check])
-          assert r['checks']['llm']['configured'] is False, (
-              'CI must not be spending free-tier quota'
+          assert ready["status"] in ("ok", "degraded"), ready
+          for check in ("database", "model", "policy"):
+              assert ready["checks"][check]["ok"], (check, ready["checks"][check])
+          assert ready["checks"]["llm"]["configured"] is False, (
+              "CI must not be spending free-tier quota"
           )
-          print(f"health: {r['status']} - database, model and policy ok, no LLM key")
-          "
-          snapshots=$(curl -fsS http://localhost:8000/api/v1/snapshots)
-          echo "$snapshots" | python -c "
-          import json, sys
-          rows = json.load(sys.stdin)
-          assert len(rows) == 3, rows
-          print(f'snapshots: {[r[\"snapshot_id\"] for r in rows]}')
-          "
+          print("health:", ready["status"], "- database, model, policy ok; no LLM key")
+
+          snapshots = json.load(open("/tmp/snapshots.json"))
+          assert len(snapshots) == 3, snapshots
+          print("snapshots:", [s["snapshot_id"] for s in snapshots])
+          PY
 
       - name: The full situation journey works inside the stack
         run: |
