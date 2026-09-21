@@ -69,7 +69,4 @@ _bench*.log
 # Private working documents: the brief, the plan and the agent instructions.
 # Kept locally, never published - they describe how the project was directed,
 # which is not part of the product.
-CLAUDE.md
-AGENTS.md
-OpsPilot_Project_Plan.md
-prompts/
+.private/
