@@ -211,7 +211,7 @@ worst failure mode to discover live:
 |---|---|
 | App | https://opspilot-web-hj6k.onrender.com |
 | API | https://opspilot-api-pg66.onrender.com |
-| Database | Supabase free project `tcttvxyvdepcifdxpacp` (us-west-1) |
+| Database | Supabase free project (us-west-1); the project ref is deliberately not published |
 
 - `infra/verify_deployment.py`: **37/37** checks against the public URLs.
 - Playwright against the deployed site: **12/12** journeys, including approve
