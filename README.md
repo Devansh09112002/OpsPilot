@@ -338,6 +338,7 @@ See [`docs/deployment.md`](docs/deployment.md).
 ## Licence
 
 Source code: **MIT** — see [`LICENSE`](LICENSE).
+Third-party data terms: see [`NOTICE`](NOTICE).
 
 The Olist dataset is **not** MIT and is not redistributed here; it is fetched
 at build time and carries CC BY-NC-SA 4.0 (non-commercial). The trained

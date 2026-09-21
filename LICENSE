@@ -19,22 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-THIRD-PARTY DATA
-
-This licence covers the source code in this repository only.
-
-The Olist Brazilian E-Commerce Public Dataset is not included here; it is
-downloaded at build time by `python -m data_pipeline.fetch`. It is published
-by Olist under Creative Commons Attribution-NonCommercial-ShareAlike 4.0
-International (CC BY-NC-SA 4.0):
-
-    https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce
-    https://creativecommons.org/licenses/by-nc-sa/4.0/
-
-That licence is non-commercial. Anyone running this software against that
-dataset, or redistributing data derived from it, is bound by its terms
-regardless of the MIT licence above. The trained model artefact in
-`artifacts/` is derived from that dataset and inherits the same restriction.

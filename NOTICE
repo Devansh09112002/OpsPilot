@@ -1,0 +1,27 @@
+THIRD-PARTY DATA NOTICE
+=======================
+
+The MIT licence in LICENSE covers the source code in this repository only.
+
+Olist Brazilian E-Commerce Public Dataset
+-----------------------------------------
+
+This project uses, but does not redistribute, the Olist Brazilian E-Commerce
+Public Dataset. It is downloaded at build time by:
+
+    python -m data_pipeline.fetch
+
+Source:   https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce
+Licence:  Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+          International (CC BY-NC-SA 4.0)
+          https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+That licence is NON-COMMERCIAL. Anyone who runs this software against that
+dataset, or redistributes data derived from it, is bound by its terms
+regardless of the MIT licence on the code.
+
+The trained model artefact in artifacts/ is derived from that dataset and
+inherits the same restriction.
+
+OpsPilot is a non-commercial demonstration and implies no endorsement by
+Olist.
