@@ -262,7 +262,9 @@ docs/           audit, model report, agent evaluation, API, architecture, deploy
 | Document | Contents |
 |---|---|
 | [`docs/data_audit.md`](docs/data_audit.md) | Source verification, eligibility funnel, target rule, splits, feature availability table |
+| [`FINAL_RELEASE_REPORT.md`](FINAL_RELEASE_REPORT.md) | Release status, every verification result, security posture, limitations |
 | [`docs/model_report.md`](docs/model_report.md) | Baselines, selection, held-out results, calibration, error analysis, limitations |
+| [`docs/snapshot_calibration.md`](docs/snapshot_calibration.md) | Whether a lane's risk load predicts the right count (it overstates by 1.5x) |
 | [`docs/agent_evaluation.md`](docs/agent_evaluation.md) | Benchmark composition, scoring, per-category results, failures |
 | [`docs/api_contracts.md`](docs/api_contracts.md) | Endpoints, error envelope, session and rate-limit semantics |
 | [`docs/architecture.md`](docs/architecture.md) | Boundaries, the agent graph, decisions and what was rejected |

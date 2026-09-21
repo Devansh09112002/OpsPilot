@@ -232,11 +232,12 @@ worst failure mode to discover live:
 - The Supabase account had **no organization**; provisioning now creates one
   over the API rather than sending the owner to the dashboard.
 
-## Built but not verified
+## Built and now verified
 
-| Item | Why not verified |
+| Item | Evidence |
 |---|---|
-| `docker-compose.yml` local stack | Docker cannot be installed on the dev machine (no admin rights). `backend/Dockerfile` **is** verified: Render builds and runs it. Compose itself remains unexercised and is labelled as such rather than claimed. |
+| `docker-compose.yml` local stack | Verified in CI, which has Docker (the dev machine cannot install it). The job builds the images, starts db/api/web, runs the ingest profile, then checks readiness, three real snapshots, **the whole situation journey end to end** (5 lanes, an investigation with 4 cited facts, a ticket covering 107 orders), the frontend including a deep link, and that no credential reached the served bundle. It runs with **no provider key**, so the journey is proved to work without one. |
+| Accessibility | axe-core over WCAG 2.1 A and AA on every screen, in CI. Seven serious violations found and fixed; zero remain. |
 
 ---
 
@@ -247,8 +248,10 @@ worst failure mode to discover live:
   <https://aistudio.google.com/apikey>, set it on the `opspilot-api` service in
   Render, and delete the old one. Nothing else needs to change.
 - The repository is private, so the "public source repository" deliverable is
-  not met until it is made public. It is verifiably clean: no API key appears
-  in any commit.
+  not met until it is made public. It is verifiably clean: every live
+  credential was compared against all 745 objects in history and appears in
+  none of them. `LICENSE` (MIT, with the dataset's CC BY-NC-SA terms stated
+  separately) is in place.
 
 ---
 
