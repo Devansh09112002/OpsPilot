@@ -83,7 +83,7 @@ Ticked only when run and inspected, not when written.
 - [x] Arrival forecast, buffer and tag in API, agent tools and UI
 - [x] Agent benchmark re-run on v4: 71/71, held-out 37/37
 - [x] Deploy migrates and loads scores itself (no manual seeding)
-- [ ] Verified on the public URL
+- [x] Verified on the public URL: 39/39 deployment checks, 31 browser journeys
 
 ## Release blockers still open
 - None. The Gemini key rotation, the last blocker, is complete and verified.

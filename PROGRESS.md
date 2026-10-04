@@ -18,7 +18,7 @@ output inspected.
 | 3. AI + action | Done | Real Gemini call verified; approval and tickets tested |
 | 4. Cloud + hardening | **Done** | Deployed; 37/37 deployed checks and 12/12 browser journeys pass on the public URL |
 | 5. Lane situations (v2) | Done | Verified on the public URL |
-| 6. Snapshot-day model (v3, v4) | Done | Pre-registered; test P@50 0.405; served with live parity; see below |
+| 6. Snapshot-day model (v3, v4) | **Deployed** | Test P@50 0.405; live: 39/39 deployment checks, 31 browser journeys |
 
 ---
 
@@ -98,6 +98,12 @@ not see it.
   The container migrates before serving and the API loads shipped scores at
   start-up, so a deploy updates its own database.
 - **Agent benchmark on v4:** 71/71, held-out 37/37.
+- **Verified on the public URL** after deploy: `infra.verify_deployment` 39/39
+  (including a real AI investigation, approval and idempotency) and 31
+  Playwright journeys, with fresh screenshots of the live site in the README.
+  The first deploy passed 38/39: two ranks were swapped because the start-up
+  sync compared only the version name; it now compares content, and the next
+  deploy repaired production by itself.
 - **Fixed from the review:** deterministic briefs no longer use the shared AI
   cap; the benchmark's p95 formula; a 409 that named a non-existent action.
 - **Incident, 4 October.** `.env` points `DATABASE_URL` at production, so a
