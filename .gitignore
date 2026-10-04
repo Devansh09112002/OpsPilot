@@ -70,3 +70,6 @@ _bench*.log
 # Kept locally, never published - they describe how the project was directed,
 # which is not part of the product.
 .private/
+
+# Local research on other datasets (LaDe). Kept on this machine only.
+research/
