@@ -150,8 +150,12 @@ their scores, ranks and arrival estimates are computed then and shipped in
 The API still serves **live**: `app/ml/predictor.py` recomputes any order's
 score from its stored point-in-time documents with the served models.
 Re-scoring all 3,955 demo orders reproduces every stored rank, probability and
-arrival date exactly, and a test samples the top, middle and bottom of the
-queue on every run. Artifacts carry SHA-256 checksums; a mismatch makes the
+arrival date, and a test samples the top, middle and bottom of the queue on
+every run. Scores are stored on one platform and served on another, and
+XGBoost's last bits differ between them, so an order is ranked against the
+*other* orders of its day rather than by matching its own stored value - CI
+caught a rank moving by one before that change, and a test now nudges the
+ranking model by 1e-7 and asserts no rank moves. Artifacts carry SHA-256 checksums; a mismatch makes the
 predictor unavailable (503), never approximate.
 
 ### Explanations

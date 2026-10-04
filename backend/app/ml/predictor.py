@@ -53,7 +53,6 @@ ARTIFACT_SUBDIR = "v4"
 FILES = ("hazard.ubj", "lambdamart.joblib", "support.joblib")
 # Overdue orders are past their promise and certain to be late; they are not ranked.
 UNRANKED_SCORE = -1.0
-_TOLERANCE = 0.0  # exact: live and stored scores are bit-identical
 
 
 class ArtifactError(RuntimeError):
@@ -81,13 +80,17 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _percentile_rank(value: float, population: np.ndarray) -> float:
-    """pandas' average-method percentile rank of `value` within `population`."""
-    less = float(np.sum(population < value - _TOLERANCE))
-    equal = float(np.sum(np.abs(population - value) <= _TOLERANCE))
-    if equal == 0:  # not a member: rank it as if inserted
-        return (less + 1.0) / (len(population) + 1.0)
-    return (less + (equal + 1.0) / 2.0) / len(population)
+def _percentile_rank(value: float, others: np.ndarray) -> float:
+    """pandas' average-method percentile rank of `value` among itself and `others`.
+
+    The order is ranked against every *other* order of the day rather than by
+    finding its own stored value: XGBoost's last bits differ between the
+    platform that stored the scores and the one serving them, and an exact
+    match on a value that differs by 1e-7 would shift the rank.
+    """
+    less = float(np.sum(others < value))
+    equal = float(np.sum(others == value))
+    return (less + 1.0 + equal / 2.0) / (len(others) + 1.0)
 
 
 class Predictor:
@@ -249,8 +252,9 @@ class Predictor:
         hz = float(self._hazard.predict_late(frame, at)[0])
         lm = float(self._model.predict(X[SNAPSHOT_MODEL_FEATURES])[0])
 
-        arr = np.array([r[:4] for r in cohort], dtype=float)
-        ids = np.array([r[4] for r in cohort])
+        others = [r for r in cohort if r[4] != order_id]
+        arr = np.array([r[:4] for r in others], dtype=float).reshape(-1, 4)
+        ids = np.array([r[4] for r in others])
         ensemble = float(np.mean([
             _percentile_rank(km, arr[:, 0]),
             _percentile_rank(hz, arr[:, 1]),

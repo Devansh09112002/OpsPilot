@@ -109,3 +109,26 @@ def test_the_served_model_records_its_published_test_result():
     published = json.loads((spec.DOCS_DIR / "research_v4_test.json").read_text())
     assert meta["test_precision_at_50"] == published["mean_precision_at_50"]["ensemble_rank"]
     assert meta["training_cutoff"] == "2018-06-01"
+
+
+def test_ranks_survive_last_bit_differences_between_platforms(db, loaded_model, monkeypatch):
+    """Scores were stored on one platform and are served on another.
+
+    XGBoost's last bits differ between them. CI caught a rank shifting by one
+    when the live ranking-model score differed from the stored one by ~1e-7,
+    because the order was matched to its own stored value exactly. It is now
+    ranked against the other orders of the day, so a nudge that small cannot
+    move it.
+    """
+    real = loaded_model._model
+
+    class Nudged:
+        named_steps = real.named_steps
+
+        def predict(self, X):
+            return real.predict(X) * (1.0 + 1e-7)
+
+    monkeypatch.setattr(loaded_model, "_model", Nudged())
+    for so in sorted(_ranked(db), key=lambda r: r.priority_rank)[:20]:
+        live = loaded_model.score(db, so.order_id, so.snapshot_id, with_factors=False)
+        assert live.priority_rank == so.priority_rank
