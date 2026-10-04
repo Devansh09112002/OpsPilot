@@ -354,3 +354,23 @@ def attach_labels(rows: pd.DataFrame, df: pd.DataFrame) -> pd.DataFrame:
         lab[["order_id", spec.TARGET_NAME, "known_from"]],
         on="order_id", how="left", validate="many_to_one",
     )
+
+
+# Plain-language names for the snapshot-day inputs, used when a served score
+# explains itself.
+SNAPSHOT_FEATURE_LABELS: dict[str, str] = {
+    "days_in_transit": "days in transit so far",
+    "days_left": "days left before the promised date",
+    "window_used": "share of the promised delivery window already used",
+    "km_survival_now": "share of similar parcels on this route still undelivered at this age",
+    "km_cond_late": "route's chance of missing the promise, given still undelivered",
+    "km_cond_late_network": "network-wide chance of missing the promise, given still undelivered",
+    "recent_late_rate_network": "network late rate over the last four weeks",
+    "recent_late_rate_lane": "this route's late rate over the last four weeks",
+    "lane_in_transit": "parcels in transit on this route today",
+    "lane_overdue_share": "share of this route's parcels already overdue today",
+    "network_overdue_share": "share of all parcels already overdue today",
+    "seller_known_late_rate": "seller's late rate on orders already settled",
+    "seller_known_orders": "seller's orders already settled",
+    "lane_known_late_rate": "route's late rate on orders already settled",
+}

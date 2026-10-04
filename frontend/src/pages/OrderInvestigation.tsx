@@ -13,11 +13,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import {
+  ArrivalBadge,
   ErrorState,
   RiskBadge,
   Spinner,
+  formatBuffer,
   formatDate,
   formatDateTime,
+  formatDay,
   formatBRL,
   formatRisk,
 } from "../components/common";
@@ -170,24 +173,55 @@ export default function OrderInvestigation() {
                 <RiskBadge band={order.risk_band} />
               )}
             </div>
-            <div style={{ fontSize: "2.4rem", fontWeight: 650, lineHeight: 1.1 }}>
-              {formatRisk(order.risk_probability)}
+            <div
+              style={{ fontSize: "2.4rem", fontWeight: 650, lineHeight: 1.1 }}
+              data-testid="priority"
+            >
+              {order.priority_rank ? `#${order.priority_rank}` : "Overdue"}
             </div>
             <p className="faint small" style={{ marginTop: "0.4rem" }}>
-              {order.calibrated ? "Calibrated estimate" : "Uncalibrated score"} that
-              this order misses its promised date, predicted at carrier handover
-              on {formatDateTime(order.prediction_as_of)} by model{" "}
-              <code>{order.model_version}</code>
-              {order.calibrated && (
-                <> against a marketplace baseline near 3%</>
-              )}
-              . Not a diagnosis of a cause.
+              {order.priority_rank ? (
+                <>
+                  Priority in this day&rsquo;s queue of{" "}
+                  {order.cohort_size?.toLocaleString() ?? "--"} orders
+                  {order.risk_band === "high" && <>, in today&rsquo;s review list (top 50)</>}.
+                </>
+              ) : (
+                <>Already past its promised date, so it is handled as overdue and not ranked.</>
+              )}{" "}
+              Scored on {formatDate(order.prediction_as_of)} from what was known that
+              morning, by model <code>{order.model_version}</code>. Not a diagnosis of a
+              cause.
             </p>
+            <dl className="kv" style={{ marginTop: "0.6rem" }}>
+              <dt>Estimated chance late</dt>
+              <dd>
+                {formatRisk(order.risk_probability)}{" "}
+                <span className="faint small">
+                  (a model estimate; it runs high in calm periods)
+                </span>
+              </dd>
+            </dl>
+
+            <div className="forecast" data-testid="forecast">
+              <h3 className="faint" style={{ marginBottom: "0.4rem" }}>
+                Forecast arrival
+              </h3>
+              <div className="arrival-cell">
+                <strong>{formatDay(order.expected_arrival)}</strong>
+                <ArrivalBadge tag={order.arrival_tag} />
+              </div>
+              <p className="faint small" style={{ marginTop: "0.4rem", marginBottom: 0 }}>
+                Likely between {formatDay(order.arrival_earliest)} and{" "}
+                {formatDay(order.arrival_latest)} (80% range), {formatBuffer(order.buffer_days)}.
+                A forecast from the survival model; it can be wrong.
+              </p>
+            </div>
 
             {order.risk_factors.length > 0 && (
               <div style={{ marginTop: "1rem" }}>
                 <h3 className="faint" style={{ marginBottom: "0.5rem" }}>
-                  What moved this score
+                  What moved this order&rsquo;s ranking
                 </h3>
                 {order.risk_factors.map((f) => (
                   <div className="factor" key={f.feature}>
@@ -218,9 +252,9 @@ export default function OrderInvestigation() {
                   </div>
                 ))}
                 <p className="faint small" style={{ marginTop: "0.6rem", marginBottom: 0 }}>
-                  Exact attribution of this order's score to its inputs
-                  (TreeSHAP). These are what moved the model, not established
-                  causes of delay.
+                  Exact attribution of the ranking model&rsquo;s score to its
+                  inputs (TreeSHAP). These are what moved the model, not
+                  established causes of delay.
                 </p>
               </div>
             )}
@@ -300,7 +334,7 @@ export default function OrderInvestigation() {
               <>
                 <p className="muted">
                   Runs a bounded workflow that retrieves this order's as-of
-                  record, re-serves the delivery-risk model, computes historical
+                  record, re-scores it with the delivery-risk model, computes historical
                   comparisons from deliveries completed before this snapshot,
                   and applies the versioned demo policy. Every figure in the
                   report is checked against the tool that produced it.

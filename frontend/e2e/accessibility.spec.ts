@@ -71,7 +71,7 @@ test.describe("Accessibility (axe-core, WCAG 2.1 AA)", () => {
   test("order detail", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("order-row").first().getByRole("link").click();
-    await expect(page.locator("text=/Predicted at carrier handover/i").first()).toBeVisible();
+    await expect(page.locator("text=/Scored on/i").first()).toBeVisible();
     await scan(page, "order detail");
   });
 

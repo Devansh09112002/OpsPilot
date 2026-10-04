@@ -133,8 +133,15 @@ def verify(api: str, web: str, *, run_investigation: bool) -> Report:
         report.add("risk queue returns orders", len(items) > 0, f"{page.get('total', 0):,} total")
         if items:
             risks = [i["risk_probability"] for i in items]
+            ranks = [i.get("priority_rank") for i in items]
             report.add("scores are valid probabilities", all(0 <= r <= 1 for r in risks))
-            report.add("queue is ranked by risk", risks == sorted(risks, reverse=True))
+            report.add("queue is the priority list (rank 1, 2, 3...)",
+                       ranks == list(range(1, len(items) + 1)))
+            report.add("the top of the queue is the review list",
+                       all(i.get("risk_band") == "high" for i in items))
+            report.add("every order carries an arrival forecast",
+                       all(i.get("arrival_earliest") and i.get("expected_arrival")
+                           and i.get("arrival_latest") for i in items))
             report.add("every score carries a model version",
                        all(i.get("model_version") for i in items),
                        items[0].get("model_version", ""))
@@ -150,15 +157,18 @@ def verify(api: str, web: str, *, run_investigation: bool) -> Report:
             ).json()
             report.add("order detail exposes no delivery outcome",
                        not any(m in str(detail) for m in OUTCOME_MARKERS))
-            report.add("prediction is labelled as of carrier handover",
-                       detail.get("prediction_as_of") == detail.get("order_delivered_carrier_date"))
+            report.add("score is labelled as of the snapshot day",
+                       detail.get("prediction_as_of") == detail.get("snapshot_at"))
 
             served = client.post(f"{api}/api/v1/predictions",
                                  json={"order_id": order_id, "snapshot_id": SNAPSHOT}).json()
             report.add("live inference matches the stored queue score",
                        abs(served.get("risk_probability", -1)
-                           - detail.get("risk_probability", -2)) < 1e-4,
-                       f"{served.get('risk_probability')} vs {detail.get('risk_probability')}")
+                           - detail.get("risk_probability", -2)) < 1e-4
+                       and served.get("priority_rank") == detail.get("priority_rank")
+                       and served.get("expected_arrival") == detail.get("expected_arrival"),
+                       f"rank {served.get('priority_rank')} vs {detail.get('priority_rank')}, "
+                       f"p {served.get('risk_probability')} vs {detail.get('risk_probability')}")
 
         print("\nSession and authorization")
         # The session is minted by the first endpoint that needs one, so the

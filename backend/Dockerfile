@@ -65,4 +65,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD curl -fsS http://127.0.0.1:${PORT:-8000}/api/v1/health || exit 1
 
 # Render supplies $PORT. One worker keeps the memory ceiling predictable.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --app-dir /app/backend"]
+# Migrations run first: they are additive, so the previous release keeps
+# working on the migrated schema, and if one fails the container never starts
+# serving - the platform keeps the old deploy live instead.
+CMD ["sh", "-c", "cd /app/backend && alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --app-dir /app/backend"]

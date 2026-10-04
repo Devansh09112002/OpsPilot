@@ -189,7 +189,7 @@ test.describe("Accessibility and empty states", () => {
     const orderLink = page.getByTestId("order-row").first().getByRole("link");
     await orderLink.focus();
     await page.keyboard.press("Enter");
-    await expect(page.locator("text=/Predicted at carrier handover/i").first()).toBeVisible();
+    await expect(page.locator("text=/Scored on/i").first()).toBeVisible();
   });
 
   test("the risk queue points at the lane view", async ({ page }) => {
@@ -215,8 +215,8 @@ test.describe("Accessibility and empty states", () => {
 
 test.describe("Honest wording", () => {
   test("no screen presents the risk load as a forecast of a count", async ({ page }) => {
-    // The sum of member probabilities overstates the number actually late by
-    // about 1.5x on held-out data (docs/snapshot_calibration.md). The backend
+    // The sum of member estimates overstates the number actually late by
+    // about 1.6x on held-out data (docs/snapshot_calibration.md). The backend
     // surfaces are covered by a unit test; this covers what a visitor reads.
     // A stat card slipped through once and was caught by a screenshot.
     for (const path of ["/situations", "/"]) {

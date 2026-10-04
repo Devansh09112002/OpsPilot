@@ -9,12 +9,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
+  ArrivalBadge,
   EmptyState,
   ErrorState,
   RiskBadge,
   RiskScore,
   TableSkeleton,
   formatDate,
+  formatDay,
   formatBRL,
   formatRisk,
   shortId,
@@ -128,12 +130,14 @@ export default function RiskQueue() {
         <h1>Delivery risk queue</h1>
         <p className="muted" style={{ maxWidth: "70ch" }}>
           Real Olist marketplace orders that were in transit on the selected
-          historical date. Each figure is a <strong>calibrated estimate</strong>{" "}
-          of the chance that order missed its promised date, produced by the
-          trained model from information available{" "}
-          <strong>at carrier handover</strong> and fitted to observed
-          frequencies on held-out data. The data is historical; the scoring, AI
-          investigation and ticketing you trigger here run live.
+          historical date, <strong>ranked for review</strong>. Each order is
+          scored <strong>on that day</strong>, using only what was known that
+          morning. On held-out data the top 50 of a day held 40.5% late orders,
+          against 4.8% at random. Beside the rank: the model&rsquo;s estimated
+          chance of missing the promised date (an estimate that runs high in
+          calm periods) and a forecast arrival date, which can be wrong. The
+          data is historical; the scoring, AI investigation and ticketing you
+          trigger here run live.
         </p>
       </div>
 
@@ -163,8 +167,8 @@ export default function RiskQueue() {
             onChange={(e) => update({ band: e.target.value })}
           >
             <option value="">All bands</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
+            <option value="high">High (today&rsquo;s top 50)</option>
+            <option value="medium">Medium (rest of top quarter)</option>
             <option value="low">Low</option>
           </select>
         </div>
@@ -177,7 +181,7 @@ export default function RiskQueue() {
             disabled={!snapshots}
             onChange={(e) => update({ sort: e.target.value })}
           >
-            <option value="risk">Highest risk</option>
+            <option value="risk">Priority</option>
             <option value="deadline">Nearest deadline</option>
             <option value="handover">Most recent handover</option>
           </select>
@@ -215,21 +219,21 @@ export default function RiskQueue() {
             <div className="stat__value">{stats.orders_pre_deadline.toLocaleString()}</div>
           </div>
           <div className="stat">
-            <div className="stat__label">High risk</div>
+            <div className="stat__label">Review list (top 50)</div>
             <div className="stat__value stat__value--high">{stats.high_risk.toLocaleString()}</div>
           </div>
           <div className="stat">
-            <div className="stat__label">Medium risk</div>
+            <div className="stat__label">Watch (top quarter)</div>
             <div className="stat__value stat__value--medium">
               {stats.medium_risk.toLocaleString()}
             </div>
           </div>
           <div className="stat">
-            <div className="stat__label">Low risk</div>
+            <div className="stat__label">Lower priority</div>
             <div className="stat__value stat__value--low">{stats.low_risk.toLocaleString()}</div>
           </div>
           <div className="stat">
-            <div className="stat__label">Mean estimated risk</div>
+            <div className="stat__label">Mean estimated chance late</div>
             <div className="stat__value">{formatRisk(stats.mean_risk)}</div>
           </div>
         </div>
@@ -255,19 +259,20 @@ export default function RiskQueue() {
             <table data-testid="risk-queue">
               <thead>
                 <tr>
+                  <th className="num">Priority</th>
                   <th>Order</th>
-                  <th className="num">Est. late</th>
+                  <th className="num">Est. chance late</th>
                   <th>Band</th>
                   <th className="num">Days to deadline</th>
                   <th>Promised</th>
-                  <th>Handover</th>
+                  <th>Forecast arrival</th>
                   <th>Route</th>
                   <th>Category</th>
                   <th className="num">Value</th>
                 </tr>
               </thead>
               {loading ? (
-                <TableSkeleton rows={8} cols={9} />
+                <TableSkeleton rows={8} cols={10} />
               ) : (
                 <tbody>
                   {(page?.items ?? []).map((o) => (
@@ -280,6 +285,9 @@ export default function RiskQueue() {
                         navigate(`/orders/${o.order_id}?snapshot=${o.snapshot_id}`)
                       }
                     >
+                      <td className="num mono" data-testid="priority-rank">
+                        {o.priority_rank ?? "--"}
+                      </td>
                       <td className="mono">
                         {/* A real link, not just a row click: the row handler
                             is a mouse convenience, and on its own it left the
@@ -303,7 +311,12 @@ export default function RiskQueue() {
                       </td>
                       <td className="num">{o.days_to_deadline.toFixed(0)}</td>
                       <td>{formatDate(o.order_estimated_delivery_date)}</td>
-                      <td>{formatDate(o.order_delivered_carrier_date)}</td>
+                      <td>
+                        <span className="arrival-cell">
+                          {formatDay(o.expected_arrival)}{" "}
+                          <ArrivalBadge tag={o.arrival_tag} />
+                        </span>
+                      </td>
                       <td className="mono">
                         {o.seller_state ?? "--"} &rarr; {o.customer_state ?? "--"}
                       </td>

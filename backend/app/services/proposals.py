@@ -145,7 +145,7 @@ def approve_proposal(db: Session, proposal_id: str, session_id: str) -> Decision
         )
         raise ConflictError(
             f"An escalation for {subject} is already open (ticket "
-            f"{duplicate.ticket_id}). Close it before raising another.",
+            f"{duplicate.ticket_id}), so a second one is not raised.",
             {
                 "proposal_id": proposal_id,
                 "existing_ticket_id": duplicate.ticket_id,

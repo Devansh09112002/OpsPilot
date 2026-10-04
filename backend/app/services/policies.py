@@ -18,13 +18,14 @@ from pathlib import Path
 
 from data_pipeline import spec
 
-POLICY_PATH = Path(__file__).resolve().parents[3] / "policies" / "demo_policy_v2.json"
+POLICY_PATH = Path(__file__).resolve().parents[3] / "policies" / "demo_policy_v3.json"
 
-# Shared with the model's "high" band cut, so a band and the policy can never
-# disagree. Stated on the CALIBRATED probability, so the number means what it
-# says: v1 used 0.60 on the raw output, where an observed late rate of ~2% sat
-# behind a 0.60 "score" - a threshold that read as strict and was not.
-ESCALATION_RISK_THRESHOLD = spec.ESCALATION_THRESHOLD
+# The one cut in the policy: the day's priority review list, which is also the
+# "high" band. It is a rank because the ranking is the served model's
+# validated output (docs/research_v4.md); its probability moves with network
+# conditions, so a fixed probability threshold would escalate far more orders
+# on a congested day than on a calm one.
+REVIEW_LIST_SIZE = spec.REVIEW_CAPACITY_K
 ESCALATION_SLACK_DAYS = 3
 
 
@@ -78,7 +79,7 @@ def all_sections() -> list[PolicySection]:
 
 
 def applicable_sections(
-    *, risk_probability: float, days_to_deadline: float, is_overdue: bool
+    *, in_review_list: bool, days_to_deadline: float, is_overdue: bool
 ) -> list[PolicySection]:
     """Deterministically select the sections that govern this order.
 
@@ -88,17 +89,18 @@ def applicable_sections(
     ids: list[str] = []
     if is_overdue:
         ids.append("ESC-04")
-    elif risk_probability >= ESCALATION_RISK_THRESHOLD:
+    elif in_review_list:
         ids.append("ESC-01" if days_to_deadline <= ESCALATION_SLACK_DAYS else "ESC-02")
     else:
         ids.append("ESC-03")
 
-    ids += ["EVI-01", "EVI-02", "EVI-03", "ACT-01", "ACT-02"]
+    ids += ["EVI-01", "EVI-02", "EVI-03", "EVI-06", "ACT-01", "ACT-02"]
     return [get_section(i) for i in ids]
 
 
 def escalation_permitted(
-    *, risk_probability: float, days_to_deadline: float, is_overdue: bool
+    *, in_review_list: bool, days_to_deadline: float, is_overdue: bool,
+    priority_rank: int | None = None,
 ) -> tuple[bool, str]:
     """The backend's own reading of the policy.
 
@@ -106,26 +108,27 @@ def escalation_permitted(
     escalation the policy does not support, the backend downgrades it rather
     than trusting the model.
     """
+    rank = f"priority rank {priority_rank}" if priority_rank else "the order"
     if is_overdue:
         return False, (
             "ESC-04: the promised date has already passed, so this order belongs to "
             "the overdue-recovery process, not predictive escalation."
         )
-    if risk_probability < ESCALATION_RISK_THRESHOLD:
+    if not in_review_list:
         return False, (
-            f"ESC-03: calibrated risk estimate {risk_probability:.3f} is below "
-            f"the {ESCALATION_RISK_THRESHOLD:.2f} escalation threshold."
+            f"ESC-03: {rank} is outside today's top-{REVIEW_LIST_SIZE} priority review "
+            "list, so it is not escalated on the model's assessment alone."
         )
     if days_to_deadline > ESCALATION_SLACK_DAYS:
         return False, (
-            f"ESC-02: calibrated risk estimate {risk_probability:.3f} meets the "
-            f"threshold but {days_to_deadline:.0f} days of slack remain, above "
-            f"the {ESCALATION_SLACK_DAYS}-day limit, so the order is monitored."
+            f"ESC-02: {rank} is in today's top-{REVIEW_LIST_SIZE} review list but "
+            f"{days_to_deadline:.0f} days of slack remain, above the "
+            f"{ESCALATION_SLACK_DAYS}-day limit, so the order is monitored."
         )
     return True, (
-        f"ESC-01: calibrated risk estimate {risk_probability:.3f} is at or above "
-        f"{ESCALATION_RISK_THRESHOLD:.2f} with {days_to_deadline:.0f} days "
-        f"remaining, within the {ESCALATION_SLACK_DAYS}-day escalation window."
+        f"ESC-01: {rank} is in today's top-{REVIEW_LIST_SIZE} priority review list "
+        f"with {days_to_deadline:.0f} days remaining, within the "
+        f"{ESCALATION_SLACK_DAYS}-day escalation window."
     )
 
 
@@ -137,7 +140,7 @@ MIN_ESCALATABLE_MEMBERS = 3
 def situation_applicable_sections(*, n_escalatable: int) -> list[PolicySection]:
     """Sections governing a lane situation. Selected in code, not by the model."""
     ids = ["ESC-05" if n_escalatable >= MIN_ESCALATABLE_MEMBERS else "ESC-03"]
-    ids += ["ESC-01", "EVI-01", "EVI-04", "EVI-05", "ACT-01", "ACT-02"]
+    ids += ["ESC-01", "EVI-01", "EVI-04", "EVI-05", "EVI-06", "ACT-01", "ACT-02"]
     return [get_section(i) for i in ids]
 
 
@@ -148,9 +151,8 @@ def situation_escalation_permitted(
 
     Deliberately composed from the per-order rule: a member counts here only if
     `escalation_permitted` already returned True for it. That keeps exactly one
-    risk threshold in the system - a second, lane-specific threshold would be
-    another pair of numbers to drift apart, which is the bug the v1 band/policy
-    split already taught us to avoid.
+    cut in the system - a second, lane-specific one would be another number to
+    drift apart from the first, which the v1 band/policy split taught us.
     """
     if n_escalatable >= MIN_ESCALATABLE_MEMBERS:
         return True, (

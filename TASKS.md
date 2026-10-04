@@ -73,5 +73,17 @@ Ticked only when run and inspected, not when written.
 - [x] Migration applied to the deployed database ahead of the code
 - [x] Verified on the public URL (37/37 smoke, 20 browser journeys)
 
+## Stage 6 — Snapshot-day model (v3, v4)
+- [x] Snapshot-day features, leakage-tested by scrambling open outcomes
+- [x] Walk-forward development over four regimes; pre-registered selection
+- [x] v3: Kaplan-Meier rule selected; test P@50 0.349 (run once)
+- [x] v4: hazard model, AFT, LambdaMART, rank ensemble; test P@50 0.405 (run once)
+- [x] Served artifacts reproduce the published figure; live parity on 3,955 orders
+- [x] Policy v3: escalation on the top-50 review list
+- [x] Arrival forecast, buffer and tag in API, agent tools and UI
+- [x] Agent benchmark re-run on v4: 71/71, held-out 37/37
+- [x] Deploy migrates and loads scores itself (no manual seeding)
+- [ ] Verified on the public URL
+
 ## Release blockers still open
 - None. The Gemini key rotation, the last blocker, is complete and verified.

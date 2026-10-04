@@ -3,16 +3,22 @@
 `OrderAsOf` is the *only* shape in which order data leaves the backend, for the
 UI and for agent tools alike. It is built from `order_features` and physically
 cannot carry a delivery outcome, because the source table has no such column.
+
+Scores are made **on the snapshot day**, from what was known at its start
+(the served v4 model; see `docs/research_v4.md`). The priority rank is the
+validated quantity; the probability is an estimate that moves with network
+conditions; the arrival dates are a forecast and can be wrong.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 RiskBand = Literal["low", "medium", "high"]
+ArrivalTag = Literal["likely_late", "tight", "on_track", "overdue", "unknown"]
 
 
 class RiskFactor(BaseModel):
@@ -64,14 +70,30 @@ class OrderListItem(BaseModel):
     days_to_deadline: float
     is_overdue: bool
     risk_probability: float = Field(
-        description="Calibrated estimate that this order misses its promised date."
+        description="Model estimate of the chance this order misses its promised date. "
+                    "Moves with network conditions and runs high in calm periods."
     )
     ranking_score: float = Field(
-        description="Raw model output. The queue's sort key; finer resolution "
-                    "than the calibrated probability, not a probability itself."
+        description="The queue's sort key: the average within-day percentile rank of "
+                    "the three model components. Not a probability."
     )
     risk_band: RiskBand
     model_version: str
+    priority_rank: int | None = Field(
+        default=None,
+        description="Position in the day's queue, 1 = review first. Null when overdue.",
+    )
+    expected_arrival: date | None = Field(
+        default=None, description="Forecast arrival day: half of similar parcels arrive by it.")
+    arrival_earliest: date | None = Field(
+        default=None, description="Day by which 10% of similar parcels arrive.")
+    arrival_latest: date | None = Field(
+        default=None, description="Day by which 90% of similar parcels arrive.")
+    buffer_days: int | None = Field(
+        default=None,
+        description="Promised day minus expected arrival. Negative means likely late.",
+    )
+    arrival_tag: ArrivalTag = "unknown"
     customer_state: str | None = None
     seller_state: str | None = None
     product_category: str | None = None
@@ -117,22 +139,39 @@ class OrderAsOf(BaseModel):
     is_cross_state: bool
 
     risk_probability: float = Field(
-        description="Calibrated estimate that this order misses its promised date."
+        description="Model estimate of the chance this order misses its promised date."
     )
     ranking_score: float
     risk_band: RiskBand
     model_version: str
+    priority_rank: int | None = Field(
+        default=None,
+        description="Position in the day's queue, 1 = review first. Null when overdue.",
+    )
+    expected_arrival: date | None = Field(
+        default=None, description="Forecast arrival day: half of similar parcels arrive by it.")
+    arrival_earliest: date | None = Field(
+        default=None, description="Day by which 10% of similar parcels arrive.")
+    arrival_latest: date | None = Field(
+        default=None, description="Day by which 90% of similar parcels arrive.")
+    buffer_days: int | None = Field(
+        default=None,
+        description="Promised day minus expected arrival. Negative means likely late.",
+    )
+    arrival_tag: ArrivalTag = "unknown"
+    cohort_size: int | None = Field(
+        default=None, description="Orders ranked in this snapshot's queue.")
     calibrated: bool = Field(
-        default=True,
-        description="Whether risk_probability has been calibrated to observed "
-                    "frequencies. False means it is a ranking score only.",
+        default=False,
+        description="False: the probability is a model estimate, not calibrated "
+                    "across periods. The priority rank is the validated quantity.",
     )
     risk_factors: list[RiskFactor] = Field(
         default_factory=list,
-        description="What drove this order's score, from exact TreeSHAP.",
+        description="What moved this order's ranking-model score, from exact TreeSHAP.",
     )
     prediction_as_of: datetime = Field(
-        description="The moment the prediction refers to: carrier handover."
+        description="The moment the score refers to: the start of the snapshot day."
     )
 
 
@@ -148,12 +187,29 @@ class PredictionResponse(BaseModel):
     ranking_score: float
     risk_band: RiskBand
     model_version: str
-    calibrated: bool = True
+    priority_rank: int | None = Field(
+        default=None,
+        description="Position in the day's queue, 1 = review first. Null when overdue.",
+    )
+    expected_arrival: date | None = Field(
+        default=None, description="Forecast arrival day: half of similar parcels arrive by it.")
+    arrival_earliest: date | None = Field(
+        default=None, description="Day by which 10% of similar parcels arrive.")
+    arrival_latest: date | None = Field(
+        default=None, description="Day by which 90% of similar parcels arrive.")
+    buffer_days: int | None = Field(
+        default=None,
+        description="Promised day minus expected arrival. Negative means likely late.",
+    )
+    arrival_tag: ArrivalTag = "unknown"
+    cohort_size: int | None = None
+    calibrated: bool = False
     risk_factors: list[RiskFactor] = Field(default_factory=list)
     prediction_as_of: datetime
     computed_at: datetime
     disclaimer: str = (
-        "Predicted at carrier handover from information available at that moment. "
-        "Not a live re-forecast and not a causal diagnosis: the factors shown are "
-        "what moved the model's score, not established causes of delay."
+        "Scored on the snapshot day from what was known at its start, recomputed "
+        "live from the stored point-in-time features. The arrival dates are a "
+        "forecast and can be wrong. Not a causal diagnosis: the factors shown are "
+        "what moved the ranking model's score, not established causes of delay."
     )

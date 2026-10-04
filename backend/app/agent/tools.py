@@ -135,11 +135,11 @@ def get_order_details(db: Session, order_id: str, snapshot_id: str) -> ToolResul
 
 
 def get_delivery_prediction(db: Session, order_id: str, snapshot_id: str) -> ToolResult:
-    """The served model's risk score for this order.
+    """The served model's assessment of this order on the snapshot day.
 
-    Recomputed live from the stored point-in-time feature document using the
-    loaded artifact. If the artifact is unavailable this fails honestly; it
-    never substitutes a placeholder number.
+    Recomputed live from the stored point-in-time documents with the loaded
+    artifacts. If they are unavailable this fails honestly; it never
+    substitutes a placeholder number.
     """
     if not predictor.available:
         return ToolResult(
@@ -151,33 +151,54 @@ def get_delivery_prediction(db: Session, order_id: str, snapshot_id: str) -> Too
             ),
         )
     try:
-        feature_row = orders.get_feature_row(db, order_id)
         order = orders.get_order_as_of(db, order_id, snapshot_id)
-        prediction = predictor.predict_one(feature_row.features or {}, with_factors=True)
+        prediction = predictor.score(db, order_id, snapshot_id)
     except Exception as exc:
         return ToolResult("get_delivery_prediction", ok=False,
                           error=_safe_error(exc, "The model prediction"))
 
+    from app.ml.predictor import arrival_tag
+
+    promised = order.order_estimated_delivery_date.date()
+    buffer = None if prediction.eta_p50 is None else (promised - prediction.eta_p50).days
+    tag = arrival_tag(prediction.eta_p50, promised, order.is_overdue)
     data = {
         "order_id": order_id,
-        "risk_probability": round(prediction.probability, 4),
+        "priority_rank": prediction.priority_rank,
+        "orders_ranked_today": prediction.cohort_size,
         "risk_band": prediction.band,
-        "calibrated": prediction.calibrated,
+        "in_priority_review_list": prediction.band == "high" and not order.is_overdue,
+        "risk_probability": round(prediction.probability, 4),
         "model_version": predictor.model_version,
-        "prediction_as_of": order.order_delivered_carrier_date.isoformat(),
+        "prediction_as_of": order.prediction_as_of.isoformat(),
+        "expected_arrival": None if prediction.eta_p50 is None else prediction.eta_p50.isoformat(),
+        "arrival_range": [None if d is None else d.isoformat()
+                          for d in (prediction.eta_p10, prediction.eta_p90)],
+        "buffer_days": buffer,
+        "arrival_tag": tag,
         "risk_factors": prediction.factors,
         "interpretation": (
-            "A calibrated estimate of the chance this order misses its promised "
-            "date, fitted on held-out validation data. The listed factors are "
-            "attributions of the model's own score for this order, not "
-            "established causes of delay."
+            "Scored on the snapshot day from what was known at its start. The "
+            "priority rank is the model's validated output: the top 50 of a day "
+            "held 40.5% late orders on held-out data, against 4.8% at random. "
+            "The probability is a model estimate that moves with network "
+            "conditions and runs high in calm periods. The arrival dates are a "
+            "forecast and can be wrong. The factors are attributions of the "
+            "ranking model's score, not established causes of delay."
         ),
     }
     evidence = [
         EvidenceItem(
+            evidence_id="prediction.priority_rank",
+            source="get_delivery_prediction",
+            label="Priority rank in today's queue (1 = review first)",
+            value=(f"{prediction.priority_rank} of {prediction.cohort_size}"
+                   if prediction.priority_rank else "not ranked (overdue)"),
+        ),
+        EvidenceItem(
             evidence_id="prediction.risk_probability",
             source="get_delivery_prediction",
-            label="Calibrated risk estimate",
+            label="Model estimate of the chance of missing the promised date",
             value=f"{prediction.probability:.4f}",
         ),
         EvidenceItem(
@@ -189,17 +210,33 @@ def get_delivery_prediction(db: Session, order_id: str, snapshot_id: str) -> Too
         EvidenceItem(
             evidence_id="prediction.as_of",
             source="get_delivery_prediction",
-            label="Prediction moment",
-            value=order.order_delivered_carrier_date.isoformat(sep=" ", timespec="minutes"),
+            label="Scored as of",
+            value=order.prediction_as_of.date().isoformat(),
         ),
     ]
+    if prediction.eta_p50 is not None:
+        evidence += [
+            EvidenceItem(
+                evidence_id="prediction.expected_arrival",
+                source="get_delivery_prediction",
+                label="Forecast arrival (half of similar parcels arrive by this day)",
+                value=(f"{prediction.eta_p50.isoformat()}, range "
+                       f"{prediction.eta_p10.isoformat()} to {prediction.eta_p90.isoformat()}"),
+            ),
+            EvidenceItem(
+                evidence_id="prediction.buffer",
+                source="get_delivery_prediction",
+                label="Promised day minus forecast arrival, in days",
+                value=f"{buffer:+d} ({tag.replace('_', ' ')})",
+            ),
+        ]
     # Each factor becomes its own citable evidence item, so the agent can
     # reference one without being able to invent it.
     for i, factor in enumerate(prediction.factors, start=1):
         evidence.append(EvidenceItem(
             evidence_id=f"prediction.factor_{i}",
             source="get_delivery_prediction",
-            label=f"Risk factor {i}: {factor['label']}",
+            label=f"Ranking factor {i}: {factor['label']}",
             value=(f"{factor['direction']} "
                    f"({factor['share']:.0%} of this order's attribution)"),
         ))
@@ -249,7 +286,8 @@ def get_historical_context(db: Session, order_id: str, snapshot_id: str) -> Tool
 
 
 def get_demo_policy(
-    *, risk_probability: float, days_to_deadline: float, is_overdue: bool
+    *, in_review_list: bool, days_to_deadline: float, is_overdue: bool,
+    priority_rank: int | None = None,
 ) -> ToolResult:
     """The versioned demo policy sections that govern this order.
 
@@ -259,14 +297,15 @@ def get_demo_policy(
     """
     try:
         sections = policies.applicable_sections(
-            risk_probability=risk_probability,
+            in_review_list=in_review_list,
             days_to_deadline=days_to_deadline,
             is_overdue=is_overdue,
         )
         permitted, rationale = policies.escalation_permitted(
-            risk_probability=risk_probability,
+            in_review_list=in_review_list,
             days_to_deadline=days_to_deadline,
             is_overdue=is_overdue,
+            priority_rank=priority_rank,
         )
         version = policies.policy_version()
     except policies.PolicyUnavailableError as exc:
@@ -341,13 +380,13 @@ def get_situation_details(db: Session, situation_id: str) -> ToolResult:
             for m in shown
         ],
         "interpretation": (
-            "'expected_late' is the sum of the member orders' calibrated risk "
-            "estimates. Measured against held-out snapshots this sum "
-            "OVERSTATES the number of orders that were actually late (see "
-            "docs/snapshot_calibration.md), because the calibrator was fitted "
-            "on a period with a much higher late rate. Use it to compare one "
-            "lane against another, not as a forecast of how many parcels will "
-            "miss their date. It is never a count of known outcomes."
+            "'expected_late' (the risk load) is the sum of the member orders' "
+            "estimated chances of missing the promise. Those estimates move "
+            "with network conditions and, measured on held-out snapshots, the "
+            "sum OVERSTATES the number of orders that were actually late (see "
+            "docs/snapshot_calibration.md). Use it to compare one lane against "
+            "another, not as a forecast of how many parcels will miss their "
+            "date. It is never a count of known outcomes."
         ),
     }
 
@@ -381,7 +420,7 @@ def get_situation_details(db: Session, situation_id: str) -> ToolResult:
         EvidenceItem(
             evidence_id="situation.expected_late",
             source="get_situation_details",
-            label="Expected late deliveries among the flagged orders",
+            label="Risk load: summed estimated chances of missing the promise (compares lanes)",
             value=f"{situation.expected_late:.1f}",
         ),
         EvidenceItem(
@@ -396,7 +435,7 @@ def get_situation_details(db: Session, situation_id: str) -> ToolResult:
         EvidenceItem(
             evidence_id="situation.mean_risk",
             source="get_situation_details",
-            label="Mean calibrated risk across members",
+            label="Mean estimated risk across members",
             value=f"{situation.mean_risk:.4f}",
         ),
         EvidenceItem(
@@ -414,7 +453,7 @@ def get_situation_details(db: Session, situation_id: str) -> ToolResult:
                 source="get_situation_details",
                 label=f"Member order {member.order_id}",
                 value=(
-                    f"calibrated risk {member.risk_probability:.4f}, "
+                    f"estimated risk {member.risk_probability:.4f}, "
                     f"{member.days_to_deadline:.0f} days to the promised date, "
                     f"{verdict} under ESC-01"
                 ),

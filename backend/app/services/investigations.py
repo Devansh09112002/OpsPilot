@@ -216,6 +216,7 @@ def run_situation_and_persist(
         )
         investigation.completed_at = _now()
         investigation.duration_ms = int((time.perf_counter() - started) * 1000)
+        investigation.report = {"mode": mode}
         record_audit(
             db, session_id=session_id, event_type="investigation_failed",
             subject_type="investigation", subject_id=investigation.investigation_id,
@@ -244,6 +245,7 @@ def run_situation_and_persist(
             "proposed_action": state.report.proposed_action,
             "evidence": evidence,
             "generated_by": state.generated_by,
+            "mode": mode,
             "situation": {
                 "situation_id": situation_id,
                 "lane": state.lane,
@@ -262,6 +264,7 @@ def run_situation_and_persist(
             "recommendation": None,
             "evidence": evidence,
             "generated_by": state.generated_by,
+            "mode": mode,
         }
     else:
         investigation.status = InvestigationStatus.failed
@@ -270,6 +273,7 @@ def run_situation_and_persist(
             "evidence": evidence,
             "limitations": state.failures,
             "generated_by": state.generated_by,
+            "mode": mode,
         }
 
     if (

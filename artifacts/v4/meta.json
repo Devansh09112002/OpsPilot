@@ -1,0 +1,38 @@
+{
+  "model_version": "survival-ensemble-v4",
+  "model_family": "survival ensemble (Kaplan-Meier + discrete-time hazard + LambdaMART)",
+  "trained_at_utc": "2026-10-04T11:17:44+00:00",
+  "training_cutoff": "2018-06-01",
+  "scored_on": "the snapshot day, from what was known at its start",
+  "bands": {
+    "high": "priority rank <= 50",
+    "medium": "rest of the top 25% of the day's queue",
+    "low": "the remainder"
+  },
+  "files": {
+    "hazard.ubj": "74883c1fe41633b25e1c9f5b3f1d51102435acf2a2034c941126486c40343233",
+    "lambdamart.joblib": "75c48d4ba8ec6274a8e99f30d996f7545c900bd9f20316f608a97aa6d67b10c7",
+    "snapshot_scores.parquet": "ecbf3eab5f451b66f99f493c335e0c4705d9f8009e6956802aaa57cd4de73167",
+    "support.joblib": "fb1a95b490967c20a002c166d731789bb0d44c3be8508c667881808d41d59739"
+  },
+  "test_precision_at_50": 0.40545454545454546,
+  "test_vs_kaplan_meier": {
+    "a": "ensemble_rank",
+    "b": "rule_km",
+    "mean_diff": 0.05636363636363637,
+    "se": 0.010725731784547365,
+    "wins": 10,
+    "ties": 0,
+    "n": 11,
+    "ci95": [
+      0.034545454545454546,
+      0.07454545454545457
+    ]
+  },
+  "arrival_estimate_test": {
+    "median_abs_error_days": 2.0,
+    "mean_abs_error_days": 3.359230823413397,
+    "coverage_80pct_interval": 0.873283087976333
+  },
+  "report": "docs/research_v4.md"
+}

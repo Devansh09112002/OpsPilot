@@ -12,11 +12,12 @@ Two boundaries are enforced structurally rather than by convention:
 from __future__ import annotations
 
 import enum
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -135,6 +136,21 @@ class SnapshotOrder(Base):
     ranking_score: Mapped[float] = mapped_column(Float, server_default="0")
     risk_band: Mapped[str] = mapped_column(String(8))
     model_version: Mapped[str] = mapped_column(String(64))
+
+    # v4: scored on the snapshot day. `ranking_score` holds the ensemble score
+    # (average within-day percentile rank of the three components below) and
+    # `risk_probability` the hazard model's chance of missing the promise.
+    priority_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    km_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    hazard_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lambdamart_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Revised arrival estimate: the days by which 10%, 50% and 90% have arrived.
+    eta_p10: Mapped[date | None] = mapped_column(Date, nullable=True)
+    eta_p50: Mapped[date | None] = mapped_column(Date, nullable=True)
+    eta_p90: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # The point-in-time snapshot-day feature document, so the API can re-score
+    # an order live and a parity test can compare it with the stored score.
+    snapshot_features: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
 # ---------------------------------------------------------------------------

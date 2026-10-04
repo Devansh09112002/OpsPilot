@@ -30,7 +30,7 @@ actionable rather than a status code.
 
 | HTTP | `code` | Meaning |
 |---|---|---|
-| 400 / 422 | `invalid_request` | Failed validation. |
+| 400 / 422 | `invalid_request` | Failed validation. (A URL carrying control characters is refused at the edge with `bad_request`.) |
 | 403 | `forbidden` | Not permitted for this session. |
 | 404 | `not_found` | Absent, **or** present but owned by another session. |
 | 409 | `conflict` | Illegal state transition (approving a rejected proposal). |
@@ -75,8 +75,8 @@ Per-dependency readiness.
   "status": "degraded",
   "checks": {
     "database": {"ok": true},
-    "model": {"ok": true, "model_version": "xgboost-20260919"},
-    "policy": {"ok": true, "version": "demo-policy-v1"},
+    "model": {"ok": true, "model_version": "survival-ensemble-v4"},
+    "policy": {"ok": true, "version": "demo-policy-v3"},
     "llm": {"ok": false, "configured": false}
   }
 }
@@ -108,19 +108,29 @@ The risk queue.
 | `snapshot_id` | string | required | |
 | `limit` | int 1–200 | 50 | |
 | `offset` | int ≥ 0 | 0 | |
-| `sort` | `risk` \| `deadline` \| `handover` | `risk` | Tie-broken on `order_id`, so pagination is stable. |
-| `risk_band` | `low` \| `medium` \| `high` | — | |
+| `sort` | `risk` \| `deadline` \| `handover` | `risk` | `risk` is the priority order. Tie-broken on `order_id`, so pagination is stable. |
+| `risk_band` | `low` \| `medium` \| `high` | — | `high` is the day's top-50 review list. |
 | `include_overdue` | bool | `false` | Past-deadline orders are excluded by default. |
 | `customer_state` | string(2) | — | |
 
-Returns `{items, total, limit, offset}`. Each item carries
-`risk_probability`, `risk_band` and `model_version`, so no number is shown
-unattributed.
+Returns `{items, total, limit, offset}`. Each item is scored **as of the start
+of the snapshot day** and carries:
+
+| field | meaning |
+|---|---|
+| `priority_rank` | position in the day's queue, 1 = review first; `null` when overdue |
+| `ranking_score` | the sort key: the average within-day percentile rank of the three model components |
+| `risk_band` | `high` = rank <= 50, `medium` = rest of the top quarter, `low` = the remainder |
+| `risk_probability` | the hazard model's estimate of the chance of missing the promised date; moves with network conditions |
+| `expected_arrival`, `arrival_earliest`, `arrival_latest` | forecast arrival day and its 10%-90% range; a forecast, can be wrong |
+| `buffer_days`, `arrival_tag` | promised day minus forecast arrival; `likely_late`, `tight`, `on_track` or `overdue` |
+| `model_version` | so no number is shown unattributed |
 
 ### `GET /orders/{order_id}?snapshot_id=…`
-The as-of DTO. Includes `prediction_as_of` — the carrier-handover moment the
-score refers to — and never a delivery outcome. 404 if the order is not in
-that snapshot.
+The as-of DTO: the list fields plus `cohort_size`, `risk_factors` (exact
+TreeSHAP attribution of the ranking model's score) and `prediction_as_of` -
+the start of the snapshot day the score refers to. Never a delivery outcome.
+404 if the order is not in that snapshot.
 
 ### `GET /snapshots/{snapshot_id}/situations`
 
@@ -139,13 +149,16 @@ Query: `limit` (1-100, default 20), `min_orders` (2-100, default 3).
   "expected_late": 19.966,
   "mean_risk": 0.1866, "max_risk": 0.4943,
   "n_escalatable": 6,
-  "model_version": "xgboost-20260920"
+  "model_version": "survival-ensemble-v4"
 }]
 ```
 
-`expected_late` is the sum of the member orders' calibrated probabilities.
-`n_escalatable` counts members that independently satisfy ESC-01; ESC-05
-permits a lane escalation at three or more.
+`expected_late` (shown as *risk load*) is the sum of the member orders'
+estimated chances of missing the promise. It compares lanes; on held-out
+snapshots it overstated the late count by about 1.6x
+(`docs/snapshot_calibration.md`). `n_escalatable` counts members that
+independently satisfy ESC-01 (in the day's top-50 review list with three days
+or less left); ESC-05 permits a lane escalation at three or more.
 
 No field here is outcome-derived.
 
@@ -162,9 +175,11 @@ orders. Ids are validated against `YYYY-MM-DD__XX-YY` before use.
 ```json
 {"order_id": "…", "snapshot_id": "2018-08-15"}
 ```
-Re-serves the model live from the stored point-in-time feature document.
-Returns the score, band, `model_version`, `prediction_as_of`, `computed_at`
-and a disclaimer.
+Re-scores the order **live** from its stored point-in-time documents with
+the served models, and returns the same fields as the order DTO plus
+`computed_at` and a disclaimer. A parity test asserts the live score equals the
+stored one; re-scoring all 3,955 demo orders reproduces every stored rank,
+probability and arrival date.
 
 **503 when the artifact is unavailable.** It never falls back to a stored or
 synthetic value. A test asserts the response body contains no probability in
@@ -265,9 +280,9 @@ This session's append-only action history: `investigation_completed`,
 | Limit | Default | Scope |
 |---|---|---|
 | `API_REQUESTS_PER_MINUTE` | 120 | Per client IP, in-process sliding window. |
-| `INVESTIGATIONS_PER_SESSION_PER_DAY` | 10 | Per guest, counted in PostgreSQL so a restart cannot reset it. |
-| `INVESTIGATIONS_GLOBAL_PER_HOUR` | 60 | All visitors. |
-| `INVESTIGATIONS_GLOBAL_PER_DAY` | 180 | All visitors. |
+| `INVESTIGATIONS_PER_SESSION_PER_DAY` | 5 | Per guest, counted in PostgreSQL so a restart cannot reset it. |
+| `INVESTIGATIONS_GLOBAL_PER_HOUR` | 25 | All visitors. Deterministic lane briefs are not counted: they never call the provider. |
+| `INVESTIGATIONS_GLOBAL_PER_DAY` | 80 | All visitors. Same rule. |
 
 All are checked **before** the provider call, so exceeding one costs a 429
 rather than quota.

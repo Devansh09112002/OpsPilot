@@ -1,0 +1,5 @@
+# The research test results record the SHA-256 of the plan and development
+# result they ran against. Keep those files byte-identical on every platform
+# so the recorded fingerprints can be checked from any checkout.
+docs/preregistration_v*.md text eol=lf
+docs/research_v*_development.json text eol=lf

@@ -39,6 +39,7 @@ artifacts/*
 !artifacts/.gitkeep
 !artifacts/delivery_risk_model.joblib
 !artifacts/delivery_risk_model.meta.json
+!artifacts/v4/
 
 # Local postgres cluster
 .pgdata/

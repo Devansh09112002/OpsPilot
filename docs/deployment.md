@@ -137,6 +137,40 @@ Supabase project is ever reset.
 
 ---
 
+## Model updates: the deploy updates its own database
+
+Since v4, a release that changes the model or the schema needs **no manual
+seeding step and no database credential on the operator's machine**:
+
+1. The container runs `alembic upgrade head` before it starts serving.
+   Migrations are additive, so the release still running keeps working on the
+   migrated schema, and if a migration fails the new container never serves -
+   Render keeps the previous deploy live.
+2. At start-up the API runs `app.services.model_sync`, which compares the
+   database's `model_version` with the shipped `artifacts/v4/snapshot_scores.parquet`
+   and, if they differ, loads the shipped scores, ranks and arrival estimates
+   in one batched statement (under a second locally, a few seconds against the
+   pooler). It refuses to write if the shipped scores and the stored snapshot
+   membership disagree, and a failure never blocks start-up: the previous
+   scores stay in place and the logs say why.
+
+To change the model: `python -m ml_pipeline.train_v4` (it refuses to write
+artifacts that do not reproduce the published test figure), commit
+`artifacts/v4/`, merge. The deploy does the rest.
+
+> **Warning - `.env` points at production.** After provisioning, the local
+> `.env` holds the *Supabase* `DATABASE_URL`. Anything that reads the app
+> settings - `alembic upgrade head`, `python -m data_pipeline.ingest`, a helper
+> script - will therefore write to the **live** database unless `DATABASE_URL`
+> is overridden for that command. For local work:
+>
+> ```bash
+> export DATABASE_URL=postgresql+psycopg://opspilot:opspilot_dev_pw@127.0.0.1:5433/opspilot
+> ```
+>
+> The test suite is safe: `backend/tests/conftest.py` forces a local test
+> database.
+
 ## Step 4 — Deploy the API to Render
 
 1. Go to <https://dashboard.render.com> and **Sign up with GitHub**.
@@ -258,6 +292,10 @@ Render keeps previous deploys. **Dashboard → service → Events → Rollback**
 restores the last working image; no repository change is needed.
 
 The database is separate from the deploy, so a rollback never loses tickets.
+Schema migrations are additive, so rolling the code back never needs a
+schema rollback; the previous release simply ignores the newer columns. A
+rolled-back release whose model differs will reload its own shipped scores at
+start-up.
 
 ---
 

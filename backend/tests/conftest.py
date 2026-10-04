@@ -31,6 +31,8 @@ os.environ.setdefault("ENVIRONMENT", "test")
 # deliberately in `test_global_investigation_cap_*` instead.
 os.environ.setdefault("INVESTIGATIONS_GLOBAL_PER_HOUR", "100000")
 os.environ.setdefault("INVESTIGATIONS_GLOBAL_PER_DAY", "100000")
+# The test database holds a slice of one snapshot, not the full shipped set.
+os.environ["SCORE_SYNC_ON_STARTUP"] = "false"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -68,7 +70,8 @@ if make_url(os.environ["DATABASE_URL"]).render_as_string(hide_password=False) ==
     )
 
 SEED_SNAPSHOT = "2018-08-15"
-SEED_ORDERS = 400
+# The whole snapshot, not a slice: a live score ranks an order against every
+# other order ranked that day, so a partial day would make parity impossible.
 
 
 @pytest.fixture(scope="session")
@@ -101,7 +104,6 @@ def _seed(engine) -> None:
             select(SnapshotOrder)
             .where(SnapshotOrder.snapshot_id == SEED_SNAPSHOT)
             .order_by(SnapshotOrder.ranking_score.desc())
-            .limit(SEED_ORDERS)
         ).scalars().all()
         order_ids = [m.order_id for m in members]
 
@@ -156,6 +158,11 @@ def _seed(engine) -> None:
                 ranking_score=m.ranking_score,
                 risk_band=m.risk_band,
                 model_version=m.model_version,
+                priority_rank=m.priority_rank,
+                km_score=m.km_score, hazard_score=m.hazard_score,
+                lambdamart_score=m.lambdamart_score,
+                eta_p10=m.eta_p10, eta_p50=m.eta_p50, eta_p90=m.eta_p90,
+                snapshot_features=m.snapshot_features,
             ))
         dst.commit()
     src_engine.dispose()
