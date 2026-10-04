@@ -4,6 +4,11 @@ import { defineConfig, devices } from "@playwright/test";
  *  BASE_URL points at the deployed site when verifying a release. */
 export default defineConfig({
   testDir: "./e2e",
+  // capture.spec.ts writes the README screenshots from the deployed site, and
+  // one capture runs a real AI investigation. It is not a test: it runs only
+  // when asked for, with CAPTURE=1, so a normal run can neither overwrite the
+  // committed screenshots nor wait on a provider key CI does not have.
+  testIgnore: process.env.CAPTURE ? [] : ["**/capture.spec.ts"],
   timeout: 90_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,

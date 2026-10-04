@@ -1,5 +1,6 @@
 /** Capture README screenshots from the deployed site. Not part of the suite:
- *  run explicitly with `npx playwright test e2e/capture.spec.ts`. */
+ *  run explicitly with
+ *  `CAPTURE=1 BASE_URL=https://... npx playwright test e2e/capture.spec.ts`. */
 import { expect, test } from "@playwright/test";
 
 const DIR = "../docs/screenshots";
