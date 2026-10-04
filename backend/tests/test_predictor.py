@@ -61,8 +61,11 @@ def test_a_live_score_equals_the_stored_one(db, loaded_model):
         live = loaded_model.score(db, so.order_id, so.snapshot_id, with_factors=False)
         assert live.priority_rank == so.priority_rank
         assert live.band == so.risk_band
-        assert live.probability == pytest.approx(so.risk_probability, abs=1e-12)
-        assert live.ranking_score == pytest.approx(so.ranking_score, abs=1e-12)
+        # Stored on one platform, served on another: XGBoost's float32 sums
+        # differ in the last bits (CI measured ~1e-8), so equality is to one
+        # part in a million. Ranks and dates must match exactly.
+        assert live.probability == pytest.approx(so.risk_probability, rel=1e-6, abs=1e-9)
+        assert live.ranking_score == pytest.approx(so.ranking_score, rel=1e-6, abs=1e-9)
         assert (live.eta_p10, live.eta_p50, live.eta_p90) == (so.eta_p10, so.eta_p50, so.eta_p90)
 
 

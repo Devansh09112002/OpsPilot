@@ -152,9 +152,11 @@ score from its stored point-in-time documents with the served models.
 Re-scoring all 3,955 demo orders reproduces every stored rank, probability and
 arrival date, and a test samples the top, middle and bottom of the queue on
 every run. Scores are stored on one platform and served on another, and
-XGBoost's last bits differ between them, so an order is ranked against the
-*other* orders of its day rather than by matching its own stored value - CI
-caught a rank moving by one before that change, and a test now nudges the
+XGBoost's float32 arithmetic differs between them in the last bits (about
+1e-8 on a probability), so probabilities are compared to one part in a
+million while ranks and dates must match exactly. An order is ranked against
+the *other* orders of its day rather than by matching its own stored value:
+CI caught a rank moving by one before that change, and a test now nudges the
 ranking model by 1e-7 and asserts no rank moves. Artifacts carry SHA-256 checksums; a mismatch makes the
 predictor unavailable (503), never approximate.
 
