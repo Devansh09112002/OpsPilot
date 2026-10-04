@@ -84,80 +84,107 @@ Four properties, each with a test:
 Olist CSVs ──► fetch (SHA-256 verified)
            ──► audit  ── eligibility, target rule, grain assertions ──► GATE
            ──► features ── one row per order, every column justified
-           ──► train  ── rule | logistic regression | XGBoost
-                         selected on simulated validation snapshots
-           ──► artifact (joblib + metadata + sha256)
-           ──► ingest ── scores written with the SAME artifact the API serves
+           ──► snapshot-day features ── one row per (order, day), as of that morning
+           ──► walk-forward development (4 regimes) ──► one-time test
+           ──► train_v4 ── refits the tested models, asserts the published figure
+           ──► artifacts/v4 (models, as-of support data, scores, checksums)
+           ──► model_sync ── loads scores at ingest and at API start-up
 ```
 
-`ml_pipeline/model.py` owns the single definition of the transformation.
-Training fits it; FastAPI loads the fitted object out of the artifact. Because
-both call the same code, a drift between them is a load error rather than a
-silently wrong score — `load_artifact` verifies the checksum and the feature
-schema and raises rather than returning something usable-looking.
+### Scored on the snapshot day
 
-Two parity tests close the loop: stored queue scores equal freshly served ones,
-and single-row scoring equals batch scoring.
+An order is scored **as of the start of its snapshot day**, from what was
+known then. v1 and v2 scored it once, at carrier handover, and never again;
+but the product ranks orders still in transit on a later day, when one more
+fact is known - the parcel has not arrived. "Still undelivered after using
+most of its promised window" is the strongest signal in this data, and a
+handover score cannot see it.
 
-**Why the model is not refreshed mid-transit:** the Olist data has no in-transit
-scan events. A prediction exists only at carrier handover, so the UI labels it
-"predicted at carrier handover" rather than implying a live re-forecast.
+`data_pipeline/snapshot_features.py` builds the day's features: time in
+transit and time left, lane transit-time curves estimated with **Kaplan-Meier**
+(parcels still moving count as censored, not dropped), recent late rates over
+orders whose outcome is already settled, and the day's congestion. A test
+scrambles every outcome still open on the day and asserts that no feature
+moves.
 
-### Two numbers, deliberately
+### Three components, one ranking
 
-A prediction carries both a calibrated probability and the raw model output,
-and they do different jobs:
+| component | what it does |
+|---|---|
+| Kaplan-Meier rule | the chance a parcel on this lane, undelivered at this age, misses its promise. No training. |
+| Discrete-time hazard model (XGBoost) | the daily chance of delivery, from the order's own details and the day's context. Gives P(late) and the whole remaining arrival distribution. |
+| LambdaMART (XGBoost `rank:ndcg`) | trained to put late orders in each day's top 50. |
 
-| | `risk_probability` | `ranking_score` |
+The **ranking score** is the average of the three components' within-day
+percentile ranks. No weights are fitted, so the combination cannot overfit.
+Developed by walk-forward over four regimes (calm, Black Friday, the March
+2018 disruption, recovery) and scored once on the held-out test:
+**Precision@50 0.405**, 8.5x random, against 0.349 for Kaplan-Meier alone and
+0.211 for an XGBoost classifier retrained on the same data
+(`docs/research_v4.md`, pre-registered in `docs/preregistration_v4.md`).
+
+### What each number on screen is
+
+| | source | status |
 |---|---|---|
-| What it is | Isotonic-calibrated estimate | Raw model output |
-| Fitted on | Validation split | Training split |
-| Used for | Display, risk bands, the policy threshold | Sorting the queue |
+| **Priority rank** | the ensemble score, sorted (ties by order id) | the validated quantity |
+| Band | `high` = rank <= 50 (the day's review list); `medium` = rest of the top quarter | presentation and policy |
+| Estimated chance late | the hazard model's P(late) | an estimate: it moves with network conditions and ran high on the calm test period |
+| Forecast arrival and range | the hazard model's 10th, 50th and 90th percentile day | median error 2 days on test; 80% range covered 87% |
 
-The raw score is not a probability: `scale_pos_weight` rebalances the classes
-during training and inflates every output, so a raw 0.65 corresponded to a 2.4%
-observed late rate. Showing that to a person is misleading whatever the caption
-says.
+The **band and the policy share one cut**: "high" is exactly the policy's
+review list, and ESC-01 escalates a review-list order with three or fewer days
+left. v2 put both on a 0.15 probability threshold, which was right for a
+calibrated handover score. The snapshot-day probability moves with conditions
+- the same threshold would flag 34 orders on one demo day and 798 on another -
+so the cut sits on the ranking, which is what was validated.
 
-**The band and the policy share one number.** `high` is not a quantile: it is
-the policy's escalation threshold, 0.15, defined once in `data_pipeline/spec.py`
-and read by both the model's band cut and `services/policies.py`. Deriving them
-independently put the band edge at 0.1659 and the policy at 0.15, so an order
-could display as "medium risk" and still be escalated - which the agent
-benchmark caught as a failure, correctly. "High" now means exactly "clears the
-escalation threshold". The calibrated distribution happens to be empty between
-0.1493 and 0.1659, so the partition is insensitive to where in that gap the cut
-falls.
+### Serving and parity
 
-The queue nonetheless sorts on the raw score, because isotonic calibration is
-monotonic **non-decreasing** — it creates ties. Ordering by the tied calibrated
-values would quietly change the ranking that every published metric was
-measured on. Sorting on the raw score keeps the ordering identical to the
-evaluation while the reader sees a number that means something.
+`ml_pipeline/train_v4.py` refits the components on everything known before
+2018-06-01 and refuses to write the artifacts unless they reproduce the
+published test Precision@50. The demo snapshots are fixed historical days, so
+their scores, ranks and arrival estimates are computed then and shipped in
+`artifacts/v4/snapshot_scores.parquet`.
+
+The API still serves **live**: `app/ml/predictor.py` recomputes any order's
+score from its stored point-in-time documents with the served models.
+Re-scoring all 3,955 demo orders reproduces every stored rank, probability and
+arrival date, and a test samples the top, middle and bottom of the queue on
+every run. Scores are stored on one platform and served on another, and
+XGBoost's float32 arithmetic differs between them in the last bits (about
+1e-8 on a probability), so probabilities are compared to one part in a
+million while ranks and dates must match exactly. An order is ranked against
+the *other* orders of its day rather than by matching its own stored value:
+CI caught a rank moving by one before that change, and a test now nudges the
+ranking model by 1e-7 and asserts no rank moves. Artifacts carry SHA-256 checksums; a mismatch makes the
+predictor unavailable (503), never approximate.
 
 ### Explanations
 
-`ml_pipeline.model.explain` returns exact TreeSHAP contributions from
-XGBoost's `pred_contribs`, so there is no extra dependency, no sampling and
-negligible memory on a 512 MB container. Two details matter:
+`Predictor.explain` returns exact TreeSHAP contributions of the LambdaMART
+score, one-hot columns summed back to their source feature. They say what
+moved the order up or down the ranking model's list; EVI-03 requires them to
+be described as attributions, never as causes.
 
-- One-hot columns are summed back to their source feature, and the mapping is
-  read off the fitted encoder's own output names. Prefix matching would confuse
-  `customer_state` with `seller_state`, and counting `categories_` undercounts
-  because `handle_unknown="infrequent_if_exist"` adds a column.
-- A test asserts the contributions reconstruct the model's margin. TreeSHAP is
-  exact, so any drift means the attribution shown to a user is wrong.
+### The v2 baseline
+
+`ml_pipeline/train.py` still reproduces the v2 handover model
+(`docs/model_report.md`: rule baseline, logistic regression and a calibrated
+XGBoost, Precision@50 0.135 on test). It is kept as the baseline every v4
+figure is compared against, and its tests still run.
 
 ---
 
 ## 3b. Situations: the unit a person can act on
 
-The v1 product was entirely order-scoped. The 2018-08-15 snapshot flags 395
+The v1 product was entirely order-scoped. A snapshot flags several hundred
 orders and the only action was to open them one at a time, against a free tier
 that allows roughly 100 investigations a day. The unit of work was wrong.
 
-Grouping those orders by lane (`seller_state -> customer_state`) turns 395
-orders into 37 lanes, five of which hold 73% of them. A lane is also the unit
+Grouping a day's flagged orders by lane (`seller_state -> customer_state`)
+concentrates them: on the 2018-08-15 snapshot, 18 lanes carry three or more
+flagged orders, and the largest few hold most of the queue. A lane is also the unit
 an escalation is actually about: you raise a route with a carrier.
 
 **What the data did and did not support.** Three premises were measured before
@@ -171,31 +198,21 @@ enough to rank on. Ranking is therefore driven by current model output, and a
 situation makes a **descriptive** claim about one snapshot, never a forecast of
 lane quality.
 
-**Ranking quantity.** Situations are ordered by the sum of member calibrated
-risk estimates. That sum is only *arithmetically* meaningful because the scores
-were calibrated; adding up `scale_pos_weight`-inflated raw outputs would give a
-number with no units.
+**Ranking quantity.** Situations are ordered by their *risk load*: the sum
+of the flagged members' estimated chances of missing the promise.
 
-It is not, however, a trustworthy forecast of a count, and measuring that was
-one of the more useful things this project did to itself. Against the held-out
-snapshots the sum **overstates** the number of orders actually late by about
-1.504x (93.26 predicted against 62 observed across 579 flagged orders);
-21 of 31 lane situations overstate. The cause is the shift the dataset
-is already known for: the isotonic calibrator is fitted on validation at a
-10.8% late rate and applied to a test period at 3.0%.
+It is not a trustworthy forecast of a count, and the project measures that
+rather than assuming it. Against the held-out snapshots the sum **overstates**
+the number of orders actually late by about 1.57x overall (243.6 against 155
+across 958 flagged orders), and the ratio moves from day to day (0.79x to
+2.03x) because the estimates follow network conditions. Nothing was re-fitted
+on the test period to "fix" it; the measurement is published in
+`docs/snapshot_calibration.md`, reproducible with
+`python -m evaluation.snapshot_calibration`, and the product calls the number
+*risk load* and says it overstates.
 
-It was not "fixed", deliberately. Refitting the calibrator on the test period,
-or picking a different fitting window after seeing these numbers, would make
-every held-out figure in the model report meaningless. The model is frozen, the
-measurement is published in `docs/snapshot_calibration.md` and reproducible via
-`python -m evaluation.snapshot_calibration`, and the **product wording changed
-instead**: the UI calls it *risk load*, says plainly that it overstates, and a
-test asserts no surface - tool payload, API schema, agent prompt or
-deterministic brief - offers the forecast reading.
-
-What survives the bias is ranking, which is what the product actually uses it
-for: a multiplicative error reorders nothing, and rank correlation between
-predicted and actual late counts across situations is 0.46.
+What it is good for is comparing lanes: the rank correlation between a lane's
+risk load and its actual late count is 0.64.
 
 **One threshold, composed.** ESC-05 permits a lane escalation when at least
 three members each independently qualify under ESC-01. It defines no new risk
@@ -208,15 +225,16 @@ a test asserts they are equal.
 Every situation can be briefed with **no provider call at all**: the same
 verified tool results, restated, with no generated prose. This is not a
 degraded mode bolted on, it is what makes the product usable. The free tier
-allows about 100 investigations a day; one snapshot flags 395 orders. The LLM
+allows about 100 investigations a day; one snapshot flags several hundred
+orders. The LLM
 path falls back to it automatically on any provider failure, and the report
 says which produced it. It also gives the agent benchmark a real floor: the
 model has to beat something, not beat nothing.
 
 **Why orders have no equivalent.** The asymmetry is deliberate. A lane brief
-exists because lanes are where the quota limit actually bites - 395 flagged
-orders against ~100 daily investigations. A single order page already degrades
-without the LLM: the as-of facts, the calibrated score, its risk factors and
+exists because lanes are where the quota limit actually bites - several
+hundred flagged orders against ~100 daily investigations. A single order page already degrades
+without the LLM: the as-of facts, the priority rank, the arrival forecast, its ranking factors and
 the policy determination are all still on screen, and the investigation panel
 says plainly that the provider is unavailable. Adding a second deterministic
 writer for the order path would duplicate the summarising logic to restate
@@ -311,7 +329,12 @@ rather than showing a broken page.
 | One LLM call, deterministic retrieval | Bounded cost, bounded latency, small injection surface | An open tool-calling loop |
 | Backend recomputes the policy decision | The model cannot escalate against policy even if convinced to try | Trusting the model's recommendation |
 | Synchronous investigations | One bounded call; a queue would add moving parts without shortening the wait | Celery / background workers |
-| Model artifact baked into the image | Under 1 MB; no start-up dependency on object storage | Fetching from S3 at boot |
+| Model artifacts baked into the image | About 6 MB; no start-up dependency on object storage | Fetching from S3 at boot |
+| Score on the snapshot day | "Still undelivered late in its window" is the strongest signal; precision 0.135 -> 0.405 | Keep the handover score and tune it |
+| Kaplan-Meier with censoring | Parcels still moving are information, not missing data | Dropping undelivered parcels, which biases transit times short |
+| Rank ensemble, no fitted weights | Three components make different mistakes; an unfitted average cannot overfit | A stacked meta-model fitted on development folds |
+| Escalate on the review list, not a probability | The ranking is what was validated; the probability moves with conditions | A fixed 0.15 threshold, which flagged 34 orders one day and 798 another |
+| Scores loaded by the API at start-up | A deploy updates its own database, with no separate credential | A manual seeding step after every model change |
 | Feature documents only for scorable orders | 93 MB of a 500 MB free database for no capability | Storing all 96k |
 | Deterministic policy lookup | Eight short sections; embeddings would be theatre | A vector database |
 | Gemini free tier | The only zero-budget option | A paid provider |
@@ -340,8 +363,11 @@ source for the action history the UI shows.
 - **In-process rate limiting.** Correct for a single instance; a second
   instance would need shared state. The investigation budget is already in
   PostgreSQL because that one must survive a restart.
-- **No retraining.** The artifact is regenerated by running the pipeline, not
-  by a scheduler.
+- **No retraining.** The artifacts are regenerated by running the pipeline,
+  not by a scheduler.
+- **The probability is an estimate.** It moves with network conditions and
+  ran high on the calm test period (mean 0.075 against 0.048 observed). The
+  ranking is validated; the probability is labelled as an estimate.
 - **Session identity only.** There are no accounts, so ticket history is tied
   to a cookie and is lost when it expires. That is the intended scope of a
   public demo.

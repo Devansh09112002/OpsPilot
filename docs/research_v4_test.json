@@ -1,0 +1,53 @@
+{
+  "generated_at_utc": "2026-10-03T21:55:05+00:00",
+  "preregistration_sha256": "9b854387371ccb43785edbd9d3bf078b62eb0f4d7b831bc46cd0645bb5940d47",
+  "development_result_sha256": "3706a27094243d39f7bf88fe54893902344a67e51b987a39a22b33471b648ba7",
+  "selected": "ensemble_rank",
+  "mean_precision_at_50": {
+    "rule_km": 0.34909090909090906,
+    "hazard_gbm": 0.36727272727272725,
+    "aft_xgb": 0.3854545454545455,
+    "lambdamart": 0.4,
+    "ensemble_rank": 0.40545454545454546
+  },
+  "vs_baseline": {
+    "a": "ensemble_rank",
+    "b": "rule_km",
+    "mean_diff": 0.05636363636363637,
+    "se": 0.010725731784547365,
+    "wins": 10,
+    "ties": 0,
+    "n": 11,
+    "ci95": [
+      0.034545454545454546,
+      0.07454545454545457
+    ]
+  },
+  "calibration": null,
+  "descriptive": {
+    "calibration_rule_km": {
+      "brier": 0.047305449119991495,
+      "brier_hindsight_constant": 0.045348439193033586,
+      "skill_vs_hindsight": -0.0431549566375935,
+      "mean_predicted": 0.11792772195572719,
+      "observed": 0.047615693456364024
+    },
+    "calibration_hazard_gbm": {
+      "brier": 0.04127775690060349,
+      "brier_hindsight_constant": 0.045348439193033586,
+      "skill_vs_hindsight": 0.08976455121426608,
+      "mean_predicted": 0.0751825299130776,
+      "observed": 0.047615693456364024
+    },
+    "arrival_estimate_hazard_gbm": {
+      "median_abs_error_days": 2.0,
+      "mean_abs_error_days": 3.359230823413397,
+      "coverage_80pct_interval": 0.873283087976333
+    }
+  },
+  "targets": {
+    "primary_ci_excludes_zero": true,
+    "brier_skill_vs_hindsight_positive": null,
+    "eta_coverage_70_to_90": null
+  }
+}

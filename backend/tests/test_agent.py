@@ -153,31 +153,45 @@ def test_history_tool_refuses_a_small_sample(db, monkeypatch, seeded_order):
 
 def test_policy_tool_selects_escalation_section_deterministically():
     result = agent_tools.get_demo_policy(
-        risk_probability=0.9, days_to_deadline=1, is_overdue=False
+        in_review_list=True, days_to_deadline=1, is_overdue=False, priority_rank=3
     )
     assert result.ok
     assert result.data["escalation_permitted_by_policy"] is True
     ids = [s["section_id"] for s in result.data["sections"]]
-    assert "ESC-01" in ids and "ACT-01" in ids
+    assert "ESC-01" in ids and "ACT-01" in ids and "EVI-06" in ids
 
 
-def test_policy_threshold_is_stated_on_the_calibrated_scale():
-    """A threshold on the raw score meant nothing; 0.15 calibrated does."""
-    from app.services.policies import ESCALATION_RISK_THRESHOLD
+def test_escalation_is_stated_on_the_validated_ranking_not_a_probability():
+    """v3 policy: the one cut is the day's top-50 review list.
 
-    assert ESCALATION_RISK_THRESHOLD == 0.15
-    # Just below the threshold must be refused, just above permitted.
-    below = agent_tools.get_demo_policy(
-        risk_probability=0.149, days_to_deadline=1, is_overdue=False)
-    above = agent_tools.get_demo_policy(
-        risk_probability=0.151, days_to_deadline=1, is_overdue=False)
-    assert below.data["escalation_permitted_by_policy"] is False
-    assert above.data["escalation_permitted_by_policy"] is True
+    The snapshot-day model's ranking is what was validated on held-out data;
+    its probability moves with network conditions, so a fixed probability
+    threshold would escalate far more orders on a congested day.
+    """
+    from app.services.policies import REVIEW_LIST_SIZE
+
+    assert REVIEW_LIST_SIZE == 50
+    outside = agent_tools.get_demo_policy(
+        in_review_list=False, days_to_deadline=1, is_overdue=False, priority_rank=51)
+    inside = agent_tools.get_demo_policy(
+        in_review_list=True, days_to_deadline=1, is_overdue=False, priority_rank=50)
+    assert outside.data["escalation_permitted_by_policy"] is False
+    assert "ESC-03" in outside.data["policy_determination"]
+    assert inside.data["escalation_permitted_by_policy"] is True
+    assert "ESC-01" in inside.data["policy_determination"]
+
+
+def test_the_review_list_is_the_high_band():
+    """One cut in the system: the band and the policy must agree."""
+    from data_pipeline import spec
+
+    assert spec.priority_band(spec.REVIEW_CAPACITY_K, 1500) == "high"
+    assert spec.priority_band(spec.REVIEW_CAPACITY_K + 1, 1500) == "medium"
 
 
 def test_policy_tool_blocks_escalation_when_slack_remains():
     result = agent_tools.get_demo_policy(
-        risk_probability=0.9, days_to_deadline=10, is_overdue=False
+        in_review_list=True, days_to_deadline=10, is_overdue=False
     )
     assert result.data["escalation_permitted_by_policy"] is False
     assert "ESC-02" in [s["section_id"] for s in result.data["sections"]]
@@ -185,7 +199,7 @@ def test_policy_tool_blocks_escalation_when_slack_remains():
 
 def test_policy_tool_blocks_escalation_for_overdue_orders():
     result = agent_tools.get_demo_policy(
-        risk_probability=0.99, days_to_deadline=-5, is_overdue=True
+        in_review_list=True, days_to_deadline=-5, is_overdue=True
     )
     assert result.data["escalation_permitted_by_policy"] is False
     assert "ESC-04" in [s["section_id"] for s in result.data["sections"]]
@@ -198,7 +212,7 @@ def test_missing_policy_file_is_an_honest_failure(monkeypatch):
     policies._load.cache_clear()
     try:
         result = agent_tools.get_demo_policy(
-            risk_probability=0.9, days_to_deadline=1, is_overdue=False
+            in_review_list=True, days_to_deadline=1, is_overdue=False
         )
         assert not result.ok
         assert "not found" in result.error

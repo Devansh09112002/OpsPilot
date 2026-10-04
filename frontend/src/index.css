@@ -499,3 +499,16 @@ p a,
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
+
+.arrival-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.forecast {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+}

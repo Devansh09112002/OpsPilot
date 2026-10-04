@@ -1,8 +1,9 @@
 # OpsPilot — Delivery Risk & AI Investigation Workbench
 
-Real historical e-commerce orders, a trained delivery-delay model, and a
-bounded tool-using agent that investigates a delivery risk — one order, or a
-whole shipping lane — and proposes an escalation a human must approve.
+Real historical e-commerce orders, a survival-analysis model that ranks the
+parcels most likely to arrive late and forecasts when each will arrive, and a
+bounded AI agent that investigates a risk — one order, or a whole shipping
+lane — and proposes an escalation a human must approve.
 
 **Live demo: https://opspilot-web-hj6k.onrender.com**
 
@@ -11,34 +12,27 @@ whole shipping lane — and proposes an escalation a human must approve.
 > showing a broken page.
 
 ![Lane situations](docs/screenshots/live-situations.png)
-*The 2018-08-15 snapshot flags 340 orders. Grouped by lane they are 18
-situations, and the top two hold half of them.*
+*Flagged orders grouped by shipping lane: a lane is what you escalate to a carrier.*
 
 ![A lane brief](docs/screenshots/live-lane-brief.png)
 *A lane assessment. Every statement carries the evidence ids it rests on, and
 the backend removes any that cite evidence no tool returned.*
 
 ![Risk queue](docs/screenshots/live-risk-queue.png)
-*The order-level queue the situations are built from.*
+*The order-level priority queue the situations are built from.*
 
 ![AI investigation](docs/screenshots/live-investigation.png)
-*A single-order investigation, with per-order risk attribution.*
+*A single-order investigation.*
 
 ---
 
 ## What this is
 
-An operations team cannot investigate every order in transit. OpsPilot ranks
-the orders most likely to miss their promised delivery date, and runs an
-evidence-grounded investigation that ends in a decision a person makes, not
-the model.
-
-It does that at two scales, because one of them does not survive contact with
-the numbers. A snapshot flags **395 orders**, and the free provider tier allows
-roughly **100 investigations a day**. Reviewing one order at a time is not a
-workflow. Grouped by shipping lane, those 395 orders are **37 lanes, five of
-which hold 73% of them** — and a lane is what you actually escalate to a
-carrier.
+An operations team cannot check every parcel in transit. Each day OpsPilot
+ranks all of them by their risk of missing the promised delivery date, puts
+the riskiest 50 at the top as the day's review list, forecasts when each parcel
+will actually arrive, and runs an evidence-grounded investigation that ends in
+a decision a person makes, not the model.
 
 The two journeys a visitor can complete:
 
@@ -46,115 +40,107 @@ The two journeys a visitor can complete:
 
 **Situations → open a lane → Investigate → approve once for every order on it → ticket**
 
-A lane situation is ranked by **risk load**: the sum of its members' calibrated
-risk estimates. That sum is only arithmetically meaningful because the scores
-are calibrated - adding up raw model output would give a number with no units.
-
-It is deliberately *not* presented as a forecast of a count, because it was
-measured and it is not one: against the held-out snapshots it overstates the
-orders actually late by about 1.504x. That measurement is reproducible
-(`python -m evaluation.snapshot_calibration`), published in
-[`docs/snapshot_calibration.md`](docs/snapshot_calibration.md), and the wording
-throughout the product was changed to match rather than the number quietly
-retuned on test data.
-
-Every situation can also be briefed **with no AI call at all** — the same
-verified facts, assembled rather than generated, and labelled as such. That is
-not a degraded mode: it is what keeps the product usable past the free tier's
-daily limit.
-
 What is real, and what is not:
 
 | | |
 |---|---|
-| **Real** | The orders (anonymised Olist marketplace data, 2016–2018), the risk scores (a trained XGBoost model, served live), the investigation (deterministic tools over the real database plus one real Gemini call), the tickets (persisted in PostgreSQL) |
+| **Real** | The orders (anonymised Olist marketplace data, 2016–2018), the scores and forecasts (trained models, served and re-scored live), the investigation (deterministic tools over the real database plus one real Gemini call), the tickets (persisted in PostgreSQL) |
 | **Simulated** | The escalation itself. No courier, seller or customer is ever contacted. |
-| **Historical** | Every order. The score is made *at carrier handover* and is never re-forecast mid-transit, because the dataset has no in-transit events. |
+| **Historical** | Every order. Each is scored *on the snapshot day*, using only what was known at the start of that day. |
 
 The application says all of this on screen. It is not buried here.
 
 ---
 
-## Measured results
+## Results
 
 Nothing below is aspirational; each number is produced by a script in this
-repository and re-generated on every run.
+repository. The test period (June–August 2018) was never used to choose a
+model: choices were made by walk-forward development, the plan was written
+down before testing ([`docs/preregistration_v4.md`](docs/preregistration_v4.md)),
+and the test ran once.
 
-### Model — [`docs/model_report.md`](docs/model_report.md)
+### Finding late parcels — [`docs/research_v4.md`](docs/research_v4.md)
 
-Ranking one snapshot at a time, exactly as the deployed queue does:
+About 1,300 parcels are in transit on a test day; 4.8% of them end up late.
 
-| Model | Precision@50 | Lift | Recall@50 |
+| Method | Late parcels in the day's top 50 | vs random | Late parcels caught |
 |---|---|---|---|
-| Operational rule (deadline proximity) | 11.6% | 2.44× | 10.7% |
-| Logistic regression | 16.7% | 3.51× | 16.0% |
-| **XGBoost (served)** | **13.5%** | **2.82×** | **12.2%** |
+| Random choice | 4.8% | 1.0× | — |
+| Deadline rule | 11.6% | 2.4× | 10.7% |
+| XGBoost classifier, same data | 21.1% | 4.4× | 20.8% |
+| Kaplan–Meier survival rule | 34.9% | 7.3× | 31.2% |
+| **OpsPilot (survival ensemble)** | **40.5%** | **8.5×** | **36.3%** |
+| Perfect knowledge (upper limit) | 89.3% | 18.7× | 83% |
 
-A reviewer working the flagged queue meets a late order ~2.8× as often as one
-reviewing 50 orders at random, against a 4.8% background rate.
+Against the XGBoost classifier trained on the same data: **+19.5 points**,
+95% interval [+12.5, +25.8], better on 9 of 11 test days. Against the
+Kaplan–Meier rule alone: +5.6 points, [+3.5, +7.5], 10 of 11 days.
 
-**The displayed score is calibrated.** The raw model output is not a
-probability — `scale_pos_weight` inflates it, so a raw 0.65 corresponded to a
-**2.4% observed late rate**, a 27× overstatement. An isotonic regression fitted
-on validation fixes that:
+**The order of the list matters.** In the top 10, **66%** are late, and 85%
+were late or arrived within a day of the deadline; only 7% were comfortably
+safe.
 
-| | Raw | Calibrated |
-|---|---|---|
-| Brier score (test) | 0.28485 | **0.02952** (9.6× better) |
-| Mean predicted | 0.4824 | **0.0886** |
-| Observed base rate | 0.0301 | 0.0301 |
+**It holds across very different periods.** In walk-forward development over
+a calm quarter, the Black Friday peak, the March 2018 disruption and the
+recovery, the ensemble averaged 57.6% against 31.4% for the XGBoost classifier,
+and was ahead or tied in all four.
 
-Isotonic is monotonic, so the ranking above is unchanged. The queue still sorts
-on the raw score — calibration creates ties, and ordering by tied values would
-silently change the ranking these metrics were measured on — while the
-calibrated estimate is what a person reads.
+### Forecasting arrival
 
-Two things the report states plainly rather than hiding:
+For every parcel in transit the hazard model gives the day by which 10%, 50%
+and 90% of similar parcels arrive. On test, the forecast was typically off by
+**2 days**, and the 80% range contained the real delivery day **87%** of the
+time. The queue tags each parcel *likely late*, *tight* or *on track* from it.
 
-- XGBoost was selected on **validation**, and logistic regression edged it out
-  on the held-out test period by +0.033 — inside the 0.030 standard error. The
-  selection was **not** revisited after seeing test results, because doing so
-  would make the test estimate meaningless.
-- A pooled Precision@50 of 0.960 also appears in the report. It is the
-  flattering number and it is *not* the product's: pooling picks the 50 most
-  extreme orders out of 18,808 across three months, a choice the product never
-  gets to make.
+### How it works
 
-### Data — [`docs/data_audit.md`](docs/data_audit.md)
+The key idea: a parcel that is **still undelivered late in its promised
+window** is the strongest warning sign in this data. A model that scores each
+order once, at carrier handover, cannot see it: an XGBoost classifier built that
+way and trained on the same data reaches 21.1%; scoring on the snapshot day
+reaches 40.5%.
 
-- 95,952 eligible orders of 99,441, with every exclusion counted.
-- The target uses a **calendar-date** rule. A naive timestamp comparison would
-  mislabel 1,291 same-day afternoon deliveries as late.
-- 329 orders where the carrier received the parcel *after* the promised date
-  are excluded: those are late by arithmetic, not prediction, and leaving them
-  in let the rule baseline score a meaningless Precision@50 of 1.000.
+Three components, combined by averaging their within-day ranks:
+
+1. **Kaplan–Meier survival.** From recent parcels on the same lane, the
+   chance one still undelivered at this age misses its promise. Parcels still
+   moving are treated as *censored*, not dropped.
+2. **Discrete-time hazard model (XGBoost).** The daily chance of delivery,
+   learned from the order's own details and the day's congestion. Gives the
+   late probability and the arrival forecast.
+3. **LambdaMART.** A learning-to-rank model trained to put late parcels in the
+   top 50.
+
+Alone, no learned model beat the Kaplan–Meier rule; together they did. The
+data limits how far this can go: about two-thirds of late parcels look normal a
+week before their deadline, because the delay is caused by something that has
+not happened yet. This public dataset has no tracking scans.
+
+### What the numbers on screen mean
+
+| | Meaning |
+|---|---|
+| **Priority** | Position in the day's queue. The validated output. |
+| **Band** | `high` = the day's top 50 (the review list); `medium` = rest of the top quarter |
+| **Estimated chance late** | The hazard model's estimate. It moves with network conditions and ran high on the calm test period (7.5% predicted vs 4.8% actual), so it is shown as an estimate, not used as a threshold. |
+| **Forecast arrival** | A forecast with its range. It can be wrong. |
+
+The escalation policy keys off the validated ranking: an order qualifies when
+it is in the day's review list **and** three or fewer days remain.
 
 ### Explainability
 
-Every served prediction says which inputs moved it, using exact TreeSHAP via
-XGBoost's built-in `pred_contribs` — no extra dependency, negligible memory:
-
-```
-days between carrier handover and the promised date   ▲ increases risk  46%
-hours from purchase to carrier handover               ▲ increases risk  12%
-slack against the seller's shipping deadline          ▲ increases risk  10%
-week of year of carrier handover                      ▼ decreases risk   4%
-```
-
-One-hot columns are summed back to their source feature, and a test asserts the
-contributions reconstruct the model margin exactly — if they ever stop doing so,
-the attribution shown to a user is wrong and the build fails. Policy `EVI-03`
-requires them to be described as attributions of the model's output, never as
-established causes.
+Every order says which inputs moved its ranking, using exact TreeSHAP from the
+ranking model, one-hot columns summed back to their source feature. Policy
+`EVI-03` requires them to be described as attributions of the model's output,
+never as established causes.
 
 ### Agent — [`docs/agent_evaluation.md`](docs/agent_evaluation.md)
 
-**68/69 cases pass, held-out 35/36 (97.2%)** against a stated 85% target.
-Claim support, policy-citation validity, approval compliance, outcome
-containment and membership grounding are all 100%. The one miss is a held-out
-case whose provider call did not return; it is reported as measured rather
-than skipped, and the harness now records the failure reason so an agent
-defect and a provider outage can be told apart.
+**71 of 71 cases pass; held-out 37 of 37** against a stated 85% target,
+including five prompt-injection attempts, provider outages, malformed output,
+missing evidence and tool failures. Median investigation 3.8 s, p95 8.9 s.
 
 | Criterion | Result |
 |---|---|
@@ -162,30 +148,37 @@ defect and a provider outage can be told apart.
 | Policy citation validity | 100% |
 | Approval compliance — no proposal the policy forbids | 100% |
 | Outcome containment — no delivery result in any report | 100% |
-| Investigation latency | median 3.3 s, p95 5.4 s (target p95 ≤30 s) |
 
-Cases span ordinary investigations across all three snapshots and risk bands,
-plus injected faults: missing order, model outage, missing and malformed
-policy, sparse history, tool exception, provider outage, rate limit, malformed
-output, schema violation, and five prompt-injection attempts. Scoring reads the
-persisted record and tool trace, so a claim citing an evidence id that no tool
-returned fails the case even when the sentence happens to be true.
+Read these honestly: claim support and approval compliance are measured
+*after* the backend's verification gate, so they show that the gate holds, not
+that the model never errs. Injected text can influence the prose; it cannot
+make an invented evidence id survive, or produce an escalation the policy
+forbids, because that decision is computed in code before the model is called.
+
+### Data — [`docs/data_audit.md`](docs/data_audit.md)
+
+- 95,952 eligible orders of 99,441, with every exclusion counted.
+- "Late" uses the **calendar date**: a naive timestamp comparison would
+  mislabel 1,291 same-day afternoon deliveries.
+- 329 orders handed to the carrier *after* their promised date are excluded:
+  late by arithmetic, not prediction.
 
 ---
 
 ## How leakage is prevented
 
-The central claim is that neither the user nor the agent can see how an order
-turned out. That is enforced by schema, not by discipline:
+Neither the user, the model nor the agent can see how an order turned out.
+That is enforced by structure and by tests, not by discipline:
 
-- `order_features` (as-of) and `order_outcomes` (eventual truth) are **separate
-  tables**. No as-of query path joins the outcome table, so leaking one would
-  require adding a join that does not exist.
-- The one legitimate use of outcomes at serving time is historical context, and
-  it is restricted to deliveries completed **strictly before** the snapshot —
-  facts an operator standing there would genuinely have had.
-- Every model feature carries a written availability justification, and the
-  feature builder **refuses to run** if one is missing.
+- `order_features` (as-of) and `order_outcomes` (eventual truth) are
+  **separate tables**. No as-of query path joins the outcome table.
+- A snapshot-day feature may use an outcome only if it was **settled at the
+  start of that day**: delivered before it, or past its promise and still
+  undelivered. A test scrambles every outcome still open on the day and
+  asserts that no feature moves; a negative control asserts that changing a
+  settled outcome does.
+- Every feature carries a written availability justification, and the
+  feature builders refuse to run if one is missing.
 - Tests assert the boundary at the data layer, the HTTP layer and in the
   browser DOM.
 
@@ -205,15 +198,20 @@ pip install -r backend/requirements-dev.txt
 
 python -m data_pipeline.fetch    # verified download of the Olist CSVs
 python -m data_pipeline.audit    # data gate; writes docs/data_audit.md
-python -m ml_pipeline.train      # trains and evaluates; writes docs/model_report.md
+python -m ml_pipeline.train      # the v2 baseline model; writes docs/model_report.md
 
 cd backend && alembic upgrade head && cd ..
-python -m data_pipeline.ingest
+python -m data_pipeline.ingest   # loads data and the served v4 scores
 
 # two terminals
 uvicorn app.main:app --app-dir backend --reload     # http://127.0.0.1:8000
 cd frontend && npm install && npm run dev            # http://127.0.0.1:5173
 ```
+
+The served v4 models ship in `artifacts/v4/`. To rebuild them:
+`python -m ml_pipeline.train_v4` (it refuses to write models that do not
+reproduce the published test result). To reproduce the research:
+`python -m ml_pipeline.walkforward_v4 develop`.
 
 Without a `GEMINI_API_KEY` everything still works except the AI investigation,
 and the UI says so explicitly rather than failing silently.
@@ -230,8 +228,8 @@ open http://localhost:5173
 ### Tests
 
 ```bash
-pytest backend/tests                        # 222 backend tests
-cd frontend && npx playwright test          # browser journeys
+pytest backend/tests                        # 248 backend tests
+cd frontend && npx playwright test          # 34 browser journeys
 python -m evaluation.agent.run_benchmark    # agent benchmark
 ```
 
@@ -242,17 +240,18 @@ python -m evaluation.agent.run_benchmark    # agent benchmark
 ```
 backend/app/
   api/v1/       HTTP routes
-  agent/        tools, prompts, LangGraph workflow, Gemini client
-  services/     orders, analytics, policies, proposals, investigations
-  ml/           model serving
+  agent/        tools, prompts, LangGraph workflows, Gemini client
+  services/     orders, situations, analytics, policies, proposals,
+                investigations, model_sync
+  ml/           model serving and live re-scoring
   db/           SQLAlchemy models + Alembic migrations
   schemas/      Pydantic request/response contracts
-data_pipeline/  fetch, audit, features, snapshots, ingest
-ml_pipeline/    model definitions, training, metrics, selection, reporting
-evaluation/     agent benchmark
-frontend/src/   three screens, one API client
-infra/          provisioning automation, nginx config
-docs/           audit, model report, agent evaluation, API, architecture, deployment
+data_pipeline/  fetch, audit, order and snapshot-day features, ingest
+ml_pipeline/    survival models, walk-forward evaluation, v2 baseline
+evaluation/     agent benchmark, lane calibration measurement
+frontend/src/   risk queue, order detail, situations, lane detail, tickets
+infra/          provisioning, deployment verification, secret scan
+docs/           reports, pre-registrations, architecture, API, deployment
 ```
 
 ---
@@ -261,21 +260,20 @@ docs/           audit, model report, agent evaluation, API, architecture, deploy
 
 | Document | Contents |
 |---|---|
-| [`docs/data_audit.md`](docs/data_audit.md) | Source verification, eligibility funnel, target rule, splits, feature availability table |
-| [`FINAL_RELEASE_REPORT.md`](FINAL_RELEASE_REPORT.md) | Release status, every verification result, security posture, limitations |
-| [`docs/model_report.md`](docs/model_report.md) | Baselines, selection, held-out results, calibration, error analysis, limitations |
-| [`docs/snapshot_calibration.md`](docs/snapshot_calibration.md) | Whether a lane's risk load predicts the right count (it overstates by 1.5x) |
-| [`docs/agent_evaluation.md`](docs/agent_evaluation.md) | Benchmark composition, scoring, per-category results, failures |
+| [`docs/research_v4.md`](docs/research_v4.md) | The served model: survival models, LambdaMART, ensemble, one-time test |
+| [`docs/preregistration_v4.md`](docs/preregistration_v4.md) | The plan written before the test, with amendments |
+| [`docs/research_v3.md`](docs/research_v3.md) | Snapshot-day scoring and the Kaplan–Meier rule |
+| [`docs/agent_evaluation.md`](docs/agent_evaluation.md) | Agent benchmark composition, scoring, results |
+| [`docs/data_audit.md`](docs/data_audit.md) | Source verification, eligibility funnel, target rule, feature availability |
+| [`docs/model_report.md`](docs/model_report.md) | The v2 handover baseline every v4 figure is compared against |
+| [`docs/snapshot_calibration.md`](docs/snapshot_calibration.md) | Whether a lane's risk load predicts the right count (it overstates by about 1.6x) |
+| [`docs/architecture.md`](docs/architecture.md) | Boundaries, the models, the agent, decisions and what was rejected |
 | [`docs/api_contracts.md`](docs/api_contracts.md) | Endpoints, error envelope, session and rate-limit semantics |
-| [`docs/architecture.md`](docs/architecture.md) | Boundaries, the agent graph, decisions and what was rejected |
-| [`docs/deployment.md`](docs/deployment.md) | Free-tier deployment, limits and their mitigations, troubleshooting |
-| [`PROGRESS.md`](PROGRESS.md) | Current status, what is verified, what is not |
+| [`docs/deployment.md`](docs/deployment.md) | Free-tier deployment, how a deploy updates its database, troubleshooting |
 
 ---
 
-## Deployment status
-
-**Deployed and verified.**
+## Deployment
 
 | | |
 |---|---|
@@ -287,17 +285,10 @@ Free tier throughout: Render (Docker web service + static site), Supabase
 (PostgreSQL), Google Gemini (`gemini-3.5-flash-lite` with a fallback chain).
 No paid service is used and no billing is enabled.
 
-Verified against the public URLs, not localhost:
-
-- `python -m infra.verify_deployment` — **37/37 checks pass**, covering queue
-  ranking, the leakage boundary, live inference matching the stored score, a
-  real investigation, approval, idempotency under a double approve, and
-  cross-session isolation.
-- `BASE_URL=... npx playwright test` — **12/12 browser journeys pass**,
-  including the full approve path and the reject path. The one skipped test
-  asserts the no-LLM failure path, which does not apply when a key is set.
-- A real investigation completes on the deployed instance in **~5.5 s**,
-  citing 18 evidence items across 5 facts.
+A release updates its own database: the container applies additive migrations
+before serving, and the API loads the shipped model scores at start-up, so a
+model change needs no manual seeding step. Verified against the public URLs
+with `python -m infra.verify_deployment` and the Playwright suite.
 
 The free tier's behaviour is handled rather than hidden:
 
@@ -305,12 +296,9 @@ The free tier's behaviour is handled rather than hidden:
   broken page.
 - A paused database is reported as paused.
 - Gemini's free tier allows only **20 requests per model per day**, so the
-  client walks a chain of five interchangeable flash models and uses the first
-  with quota left — roughly 100 investigations a day rather than 20. When the
-  whole chain is spent it says exactly that, and the risk queue and model
-  predictions keep working.
-
-See [`docs/deployment.md`](docs/deployment.md).
+  client walks a chain of five interchangeable flash models — roughly 100
+  investigations a day. Deterministic lane briefs need no AI call at all and
+  do not count against the shared cap.
 
 ---
 
@@ -318,17 +306,17 @@ See [`docs/deployment.md`](docs/deployment.md).
 
 - Trained on 2016–2018 Brazilian marketplace data; it does not transfer
   elsewhere without retraining.
-- **A lane's risk load overstates the count of orders that were actually
-  late, by about 1.5× on the held-out snapshots**
-  ([`docs/snapshot_calibration.md`](docs/snapshot_calibration.md)). The
-  calibrator is fitted on a period with a 10.8% late rate and applied to one
-  at 3.0%. It is reported rather than retuned on test data, the wording
-  throughout says so, and what survives the bias — ranking lanes against each
-  other — is what the product uses it for.
-- The score ranks risk. It does not diagnose a cause, and neither the report
-  nor the agent presents a correlation as one.
-- Absolute precision is modest. Delivery lateness is only partly predictable
-  from what is known at carrier handover, and the reports say so.
+- **The ranking is validated; the probability is an estimate.** It moves with
+  network conditions and ran high on the calm test period. A lane's *risk
+  load* (the sum of those estimates) overstated the actual late count by about
+  1.6x on held-out snapshots; it is for comparing lanes (rank correlation
+  0.64), not for counting.
+- About two-thirds of late parcels look normal a week before their deadline:
+  the delay has not happened yet. The data has no tracking scans, which caps
+  how far any model can go (perfect knowledge would reach 89% in the top 50).
+- The test period was used twice (v3, then v4), disclosed in both
+  pre-registrations; v4 had to clear a stricter bar to be tested at all.
+- The score ranks risk. It does not diagnose a cause.
 - No user accounts: ticket history is tied to a guest-session cookie.
 - Free-tier hosting sleeps when idle; the first visit after a quiet period
   takes up to a minute.
@@ -342,8 +330,8 @@ Third-party data terms: see [`NOTICE`](NOTICE).
 
 The Olist dataset is **not** MIT and is not redistributed here; it is fetched
 at build time and carries CC BY-NC-SA 4.0 (non-commercial). The trained
-artefact in `artifacts/` is derived from it and inherits those terms. Both are
-stated in `LICENSE`.
+artefacts in `artifacts/` are derived from it and inherit those terms, as
+stated in `NOTICE`.
 
 ---
 

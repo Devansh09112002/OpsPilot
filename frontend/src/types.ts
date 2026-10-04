@@ -2,6 +2,7 @@
  *  contract change is a single obvious diff. See docs/api_contracts.md. */
 
 export type RiskBand = "low" | "medium" | "high";
+export type ArrivalTag = "likely_late" | "tight" | "on_track" | "overdue" | "unknown";
 
 /** One driver of a single order's score, from exact TreeSHAP. */
 export interface RiskFactor {
@@ -58,6 +59,15 @@ export interface OrderListItem {
   ranking_score: number;
   risk_band: RiskBand;
   model_version: string;
+  /** Position in the day's queue, 1 = review first. Null when overdue. */
+  priority_rank: number | null;
+  /** Forecast arrival day (half of similar parcels arrive by it); can be wrong. */
+  expected_arrival: string | null;
+  arrival_earliest: string | null;
+  arrival_latest: string | null;
+  /** Promised day minus forecast arrival. Negative means likely late. */
+  buffer_days: number | null;
+  arrival_tag: ArrivalTag;
   customer_state: string | null;
   seller_state: string | null;
   product_category: string | null;
@@ -95,6 +105,16 @@ export interface OrderAsOf {
   ranking_score: number;
   risk_band: RiskBand;
   model_version: string;
+  /** Position in the day's queue, 1 = review first. Null when overdue. */
+  priority_rank: number | null;
+  /** Forecast arrival day (half of similar parcels arrive by it); can be wrong. */
+  expected_arrival: string | null;
+  arrival_earliest: string | null;
+  arrival_latest: string | null;
+  /** Promised day minus forecast arrival. Negative means likely late. */
+  buffer_days: number | null;
+  arrival_tag: ArrivalTag;
+  cohort_size: number | null;
   calibrated: boolean;
   risk_factors: RiskFactor[];
   prediction_as_of: string;
@@ -199,8 +219,9 @@ export interface Meta {
   model_family: string | null;
   model_available: boolean;
   calibrated: boolean;
-  calibration_method: string | null;
-  band_thresholds: { high: number; medium: number };
+  scored_on: string | null;
+  bands: { high?: string; medium?: string; low?: string };
+  test_precision_at_50: number | null;
   training_cutoff: string | null;
   policy_version: string;
   llm_configured: boolean;

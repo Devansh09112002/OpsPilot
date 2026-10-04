@@ -1,6 +1,6 @@
 # OpsPilot — Progress
 
-Last updated: 20 September 2026
+Last updated: 4 October 2026
 
 This file records what is **verified**, what is **built but unverified**, and
 what is **blocked**. A component is only "done" here if it has been run and its
@@ -17,6 +17,8 @@ output inspected.
 | 2. Vertical slice | Done | Browser shows real snapshot data and real model scores |
 | 3. AI + action | Done | Real Gemini call verified; approval and tickets tested |
 | 4. Cloud + hardening | **Done** | Deployed; 37/37 deployed checks and 12/12 browser journeys pass on the public URL |
+| 5. Lane situations (v2) | Done | Verified on the public URL |
+| 6. Snapshot-day model (v3, v4) | Done | Pre-registered; test P@50 0.405; served with live parity; see below |
 
 ---
 
@@ -73,6 +75,36 @@ output inspected.
 - Backend RSS **~340 MB** against Render's 512 MB.
 
 ---
+
+## v4: scored on the snapshot day (served model)
+
+The product ranks orders still in transit on a later day, when one more fact
+is known: the parcel has not arrived. v2 scored at carrier handover and could
+not see it.
+
+- **Research, pre-registered.** v3 (`docs/research_v3.md`) built snapshot-day
+  features with Kaplan-Meier lane curves (censoring handled) and found the
+  no-training survival rule beat every learned model. v4
+  (`docs/research_v4.md`) added a discrete-time hazard model, AFT and
+  LambdaMART; their rank ensemble cleared a two-standard-error development bar
+  and reached **test Precision@50 0.405** (8.5x random), +19.5 points over an
+  XGBoost classifier trained on the same data. Both tests ran once; the second
+  use of the test period is disclosed.
+- **Arrival forecasts.** Median error 2 days; 80% range covered 87%.
+- **Policy v3.** Escalation keys off the validated ranking (top-50 review
+  list, three days or less), not a probability that moves with conditions.
+- **Serving.** `artifacts/v4` ship the exact tested models; the API re-scores
+  live, and re-scoring all 3,955 demo orders reproduces every stored score.
+  The container migrates before serving and the API loads shipped scores at
+  start-up, so a deploy updates its own database.
+- **Agent benchmark on v4:** 71/71, held-out 37/37.
+- **Fixed from the review:** deterministic briefs no longer use the shared AI
+  cap; the benchmark's p95 formula; a 409 that named a non-existent action.
+- **Incident, 4 October.** `.env` points `DATABASE_URL` at production, so a
+  "local" migration and score load ran against the live database ahead of the
+  code. The migration is additive and harmless; the scores were v4 values
+  under v2 wording until this release deployed. `docs/deployment.md` now
+  warns about it.
 
 ## v2: lane situations
 
@@ -258,11 +290,10 @@ worst failure mode to discover live:
 
 ## Security note
 
-The Gemini key currently in `.env` was supplied through the chat transcript and
-was rotated on 21 September 2026 and the original deleted. The replacement was
-entered through a hidden prompt and has never appeared in a transcript.
-before any public release**, and set the replacement only in Render's
-environment configuration.
+The Gemini key originally supplied through a chat transcript was rotated on
+21 September 2026 and the original deleted. The replacement was entered
+through a hidden prompt and has never appeared in a transcript; it is set only
+in `.env` and in Render's environment configuration.
 
 ---
 
@@ -285,9 +316,5 @@ environment configuration.
 
 ## Next
 
-1. Receive Supabase and Render tokens.
-2. `python -m infra.provision all`.
-3. Run the E2E suite against the deployed URLs.
-4. Complete three full journeys on the public site, including approve and
-   reject.
-5. Record the public URL in the README and sign off the release checklist.
+- Optional: record the demo walkthrough the project plan asks for.
+- Optional: revoke the Render API key when no further deploys are planned.

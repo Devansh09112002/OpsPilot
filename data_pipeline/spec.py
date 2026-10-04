@@ -83,4 +83,23 @@ REVIEW_CAPACITY_K = 50
 # which is exactly what the benchmark caught when they were set independently.
 ESCALATION_THRESHOLD = 0.15
 
+# Priority bands for the served snapshot-day model (v4). Its ranking is what was
+# validated (test Precision@50, docs/research_v4.md); its probabilities move
+# with network conditions. So "high" is a rank, not a probability: the orders a
+# team can review today. "Medium" marks the rest of the upper quarter of the
+# day's queue, the same presentational rule v2 used.
+MEDIUM_BAND_SHARE = 0.25
+
+
+def priority_band(rank: int | None, cohort_size: int) -> str:
+    """Band for a 1-based priority rank within one snapshot's ranked queue."""
+    if rank is None:
+        return "high"  # overdue: already past its promise, late with certainty
+    if rank <= REVIEW_CAPACITY_K:
+        return "high"
+    if rank <= max(REVIEW_CAPACITY_K, round(MEDIUM_BAND_SHARE * cohort_size)):
+        return "medium"
+    return "low"
+
+
 RANDOM_SEED = 42

@@ -32,24 +32,29 @@ test.describe("Risk queue", () => {
     await expect(snapshot.locator("option").first()).toBeAttached();
     expect(await snapshot.locator("option").count()).toBeGreaterThanOrEqual(1);
 
-    // Displayed risk is a calibrated percentage, ranked descending.
+    // The queue is the priority list: rank 1, 2, 3... from the top.
+    const ranks = await page.getByTestId("priority-rank").allTextContents();
+    expect(ranks.slice(0, 5).map(Number)).toEqual([1, 2, 3, 4, 5]);
+
+    // The estimate beside each rank is a percentage, not a raw model output.
     const scores = await page
       .getByTestId("order-row")
-      .locator("td:nth-child(2) .mono")
+      .locator("td:nth-child(3) .mono")
       .allTextContents();
     const values = scores.map((t) => Number(t.replace("%", "")));
     expect(values.every((v) => Number.isFinite(v) && v >= 0 && v <= 100)).toBeTruthy();
-    expect([...values].sort((a, b) => b - a)).toEqual(values);
-    // Every displayed figure is a percentage, not a raw model output.
     expect(scores.every((t) => t.trim().endsWith("%"))).toBeTruthy();
 
+    // Every order carries a forecast arrival with its tag.
+    await expect(page.locator("text=/Likely late|Tight|On track/").first()).toBeVisible();
+
     // The model version is displayed, so no number is unattributed.
-    await expect(page.locator("text=/xgboost|logistic_regression|rule_/").first()).toBeVisible();
+    await expect(page.locator("text=/survival-ensemble/").first()).toBeVisible();
   });
 
   test("distinguishes predicted risk from an already-known outcome", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("text=/predicted risk|at carrier handover/i").first()).toBeVisible();
+    await expect(page.locator("text=/ranked for review/i").first()).toBeVisible();
     await expect(page.locator("text=/overdue/i").first()).toBeVisible();
   });
 
@@ -101,11 +106,19 @@ test.describe("Order detail", () => {
     await page.getByTestId("order-row").first().click();
 
     await expect(page.getByRole("heading", { name: "Model assessment" })).toBeVisible();
-    await expect(page.locator("text=/at carrier handover/i").first()).toBeVisible();
+    await expect(page.locator("text=/Scored on/i").first()).toBeVisible();
+    await expect(page.getByTestId("priority")).toContainText("#");
     await expect(page.getByTestId("investigate")).toBeVisible();
 
+    // The arrival forecast is shown as a forecast, with its range.
+    await expect(page.getByTestId("forecast")).toContainText(/Forecast arrival/);
+    await expect(page.getByTestId("forecast")).toContainText(/80% range/);
+    await expect(page.getByTestId("forecast")).toContainText(/can be wrong/);
+
     // The score explains itself, and says the drivers are not causes.
-    await expect(page.getByRole("heading", { name: "What moved this score" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /What moved this order.s ranking/ }),
+    ).toBeVisible();
     await expect(page.locator("text=/not established.*causes/i")).toBeVisible();
 
     const body = (await page.locator("body").innerText()).toLowerCase();

@@ -43,6 +43,18 @@ async def lifespan(app: FastAPI):
     predictor.load(settings.artifact_dir)
     if not predictor.available:
         log.warning("starting_without_model", error=predictor.error)
+    if settings.score_sync_on_startup:
+        # Never blocks start-up: a failed sync leaves the previous scores in
+        # place and is visible in the logs and in /health/ready.
+        from app.db.session import SessionLocal
+        from app.services.model_sync import sync_snapshot_scores
+
+        try:
+            with SessionLocal() as db:
+                log.info("snapshot_scores_checked",
+                         **sync_snapshot_scores(db, settings.artifact_dir))
+        except Exception as exc:
+            log.error("snapshot_score_sync_failed", error=str(exc))
     if not settings.llm_configured:
         log.warning("starting_without_llm_key")
     yield
@@ -50,7 +62,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="OpsPilot API",
-    version="1.0.0",
+    version="4.0.0",
     description=(
         "Delivery-risk and AI investigation workbench over the public Olist "
         "e-commerce dataset (CC BY-NC-SA 4.0). Orders are historical; model "
@@ -154,7 +166,7 @@ app.include_router(v1_router, prefix=settings.api_v1_prefix)
 def root() -> dict:
     return {
         "name": "OpsPilot API",
-        "version": "1.0.0",
+        "version": "4.0.0",
         "docs": "/docs",
         "health": f"{settings.api_v1_prefix}/health",
     }

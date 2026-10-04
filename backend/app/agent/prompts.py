@@ -35,9 +35,12 @@ Rules you must follow:
    will be rejected.
 3. Quantities must be reproduced exactly as given. Do not round, rescale,
    convert or recompute them.
-4. The risk estimate is a calibrated probability that this order misses its
-   promised date. It is not a cause. Never write that the model "found" or
-   "detected" a problem, and never explain why the order is delayed; the
+4. The model gives three things: a priority rank (its validated output), a
+   probability estimate (which moves with network conditions and runs high in
+   calm periods), and a forecast arrival date with a range (which can be
+   wrong). Present the estimate and the forecast as estimates, never as
+   certainties. None of them is a cause. Never write that the model "found"
+   or "detected" a problem, and never explain why the order is delayed; the
    model has no such information.
 5. Your `recommendation` must follow the policy determination in the evidence.
    If the policy does not permit escalation, you must not recommend
@@ -151,8 +154,9 @@ Rules you must follow:
 4. You may discuss ONLY the orders belonging to this situation. Never name an
    order identifier that does not appear in the evidence. A statement naming
    any other order will be removed.
-5. The risk estimate is a calibrated probability that an order misses its
-   promised date. It is not a cause. Never write that the model "found" or
+5. Each member's risk estimate is the model's chance that the order misses
+   its promised date; it moves with network conditions and runs high in calm
+   periods. It is not a cause. Never write that the model "found" or
    "detected" a problem, and never explain why these orders may be delayed;
    the model has no such information.
 6. 'expected_late' is the sum of the member orders' risk estimates. On

@@ -1,0 +1,102 @@
+{
+  "generated_at_utc": "2026-10-03T21:52:49+00:00",
+  "protocol": "docs/preregistration_v4.md",
+  "summary": {
+    "rule_km": {
+      "score": 0.5587121212121212,
+      "fold_means": {
+        "F1": 0.42,
+        "F2": 0.49666666666666665,
+        "F3": 0.6581818181818182,
+        "F4": 0.66
+      }
+    },
+    "hazard_gbm": {
+      "score": 0.5474621212121212,
+      "fold_means": {
+        "F1": 0.37833333333333335,
+        "F2": 0.5133333333333333,
+        "F3": 0.6781818181818182,
+        "F4": 0.62
+      }
+    },
+    "aft_xgb": {
+      "score": 0.49423701298701295,
+      "fold_means": {
+        "F1": 0.295,
+        "F2": 0.47000000000000003,
+        "F3": 0.6090909090909091,
+        "F4": 0.6028571428571429
+      }
+    },
+    "lambdamart": {
+      "score": 0.5541450216450217,
+      "fold_means": {
+        "F1": 0.4066666666666667,
+        "F2": 0.49666666666666665,
+        "F3": 0.6618181818181819,
+        "F4": 0.6514285714285715
+      }
+    },
+    "ensemble_rank": {
+      "score": 0.5759090909090909,
+      "fold_means": {
+        "F1": 0.43166666666666664,
+        "F2": 0.5283333333333333,
+        "F3": 0.6836363636363637,
+        "F4": 0.66
+      }
+    }
+  },
+  "paired_vs_baseline": {
+    "hazard_gbm": {
+      "a": "hazard_gbm",
+      "b": "rule_km",
+      "mean_diff": -0.008571428571428572,
+      "se": 0.00919887023166835,
+      "wins": 15,
+      "ties": 5,
+      "n": 42
+    },
+    "aft_xgb": {
+      "a": "aft_xgb",
+      "b": "rule_km",
+      "mean_diff": -0.06571428571428571,
+      "se": 0.01339623457220185,
+      "wins": 9,
+      "ties": 2,
+      "n": 42
+    },
+    "lambdamart": {
+      "a": "lambdamart",
+      "b": "rule_km",
+      "mean_diff": -0.00428571428571428,
+      "se": 0.006868119360303094,
+      "wins": 13,
+      "ties": 10,
+      "n": 42
+    },
+    "ensemble_rank": {
+      "a": "ensemble_rank",
+      "b": "rule_km",
+      "mean_diff": 0.019047619047619053,
+      "se": 0.00650033076804722,
+      "wins": 24,
+      "ties": 8,
+      "n": 42
+    }
+  },
+  "brier_by_model": {
+    "rule_km": 0.09616999548962471,
+    "aft_xgb": 0.25813236160784914,
+    "hazard_gbm": 0.11900728686241482
+  },
+  "selected": "ensemble_rank",
+  "decision": [
+    "best v4 candidate: ensemble_rank (0.5759); rule_km: 0.5587",
+    "paired advantage over rule_km: +0.0190, 2 SE = 0.0130",
+    "bar passed -> test"
+  ],
+  "calibration": null,
+  "runtime_seconds": 100.7
+}

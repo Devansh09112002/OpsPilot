@@ -1,36 +1,31 @@
-## Does `expected_late` predict the right number?
+## Does the lane risk load predict the right number?
 
-The situations screen sums member calibrated probabilities and presents the
-total as the number of orders the model expects to arrive late. Measured
-against what actually happened on the held-out snapshots:
+Served model: the v4 snapshot-day ensemble (`docs/research_v4.md`). The
+situations screen sums the flagged members' estimated chances of missing the
+promise into a lane's *risk load*. Measured against what actually happened on
+the held-out snapshots:
 
-| snapshot | flagged orders | predicted late | actually late | ratio |
+| snapshot | flagged orders | summed estimate | actually late | ratio |
 |---|---|---|---|---|
-| 2018-06-20 | 105 | 15.09 | 4 | 3.772x |
-| 2018-07-18 | 117 | 18.5 | 13 | 1.423x |
-| 2018-08-15 | 357 | 59.67 | 45 | 1.326x |
-| **all** | **579** | **93.26** | **62** | **1.504x** |
+| 2018-06-20 | 362 | 22.99 | 29 | 0.793x |
+| 2018-07-18 | 213 | 46.2 | 40 | 1.155x |
+| 2018-08-15 | 383 | 174.4 | 86 | 2.028x |
+| **all** | **958** | **243.59** | **155** | **1.572x** |
 
-**The sum overstates by about 1.504x.** Across the
-31 lane situations, the mean signed error is
-+1.054 orders and
-21 of 31 overstate.
+**Overall the sum overstates by about 1.572x**, and the
+ratio moves from day to day: the estimates follow network conditions, running
+low on one snapshot and high on another. Across the
+72 lane situations, the mean signed error is
++1.12 orders and
+53 of 72 overstate.
 
-The cause is the shift this dataset is already known for. The isotonic
-calibrator is fitted on the validation split, whose late rate is 10.8%; the
-snapshots sit in the test period at 3.0%. A calibration map does not survive a
-3.6x change in base rate, and the flagged population is where the gap is
-widest.
+**Why it was not "fixed".** Re-fitting anything on the test period after
+seeing these numbers would make every held-out figure meaningless. The model
+is frozen, the measurement stands, and the product wording says what the
+number is.
 
-**Why it was not "fixed".** Refitting the calibrator on the test period, or
-selecting a different fitting window after seeing these numbers, would make
-every held-out figure in this report meaningless. The model and its calibrator
-are frozen, the measurement stands, and the product wording was changed
-instead.
-
-**What the number is still good for.** Ranking. A multiplicative bias does not
-reorder anything, and rank correlation between expected and actual late counts
-across situations is
-**0.46**. Choosing which lane to
+**What the number is good for.** Comparing lanes. The rank correlation
+between a lane's risk load and its actual late count is
+**0.641**. Choosing which lane to
 review first is sound; reading the total as a forecast of how many parcels
-will be late is not, and the UI no longer invites that reading.
+will be late is not, and the UI does not invite that reading.

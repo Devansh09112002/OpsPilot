@@ -2,12 +2,12 @@
  *
  *  The queue answers "which orders look risky". This screen answers the
  *  question a reviewer actually has: "where is the risk concentrated, and what
- *  is the one thing to do about it". The 2018-08-15 snapshot flags 395 orders
- *  across 37 lanes, five of which hold roughly three quarters of them.
+ *  is the one thing to do about it". A few lanes hold most of a day's flagged
+ *  orders, and a lane is what you escalate to a carrier.
  *
  *  Every figure is a backend aggregate. `expected_late` in particular is the
- *  sum of member calibrated probabilities, computed in SQL; nothing here adds
- *  anything up in the browser.
+ *  sum of the members' estimated chances of missing the promise, computed in
+ *  SQL; nothing here adds anything up in the browser.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -200,18 +200,19 @@ export default function Situations() {
       <div className="muted small" style={{ marginTop: "1rem", maxWidth: "72ch" }}>
         <p>
           <strong>Risk load</strong> is the sum of the member orders&rsquo;
-          calibrated risk estimates. Measured against what actually happened on
-          these snapshots it <strong>overstates</strong> the number of orders
-          that were really late &mdash; by about half again &mdash; because the
-          model was calibrated on a period with a much higher late rate. Use it
-          to compare one lane with another, which is what it is reliable for,
+          estimated chances of missing the promise. Measured against what
+          actually happened on these snapshots it <strong>overstates</strong>{" "}
+          the number of orders that were really late &mdash; by about 1.6 times
+          overall, more on congested days &mdash; because the estimates move with
+          network conditions. Use it to compare one lane with another, which is
+          what it is reliable for (rank correlation 0.64 with what happened),
           rather than as a forecast of how many parcels will miss their date.
         </p>
         <p>
-          <strong>High</strong> counts orders whose risk clears the escalation
-          threshold. <strong>Qualify</strong> is smaller because escalation also
+          <strong>High</strong> counts orders in the day&rsquo;s top-50 review
+          list. <strong>Qualify</strong> can be smaller because escalation also
           requires three days or less before the promised date (ESC-01); a
-          high-risk order with a week of slack is monitored, not escalated. A
+          review-list order with a week of slack is monitored, not escalated. A
           lane needs three qualifying orders before it can be escalated as one.
         </p>
       </div>

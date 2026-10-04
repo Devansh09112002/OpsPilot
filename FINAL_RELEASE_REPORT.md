@@ -1,5 +1,11 @@
 # OpsPilot — Final Release Report
 
+> **Superseded for the model.** This report describes the v2.1 release. The
+> served model is now the v4 snapshot-day survival ensemble (test
+> Precision@50 0.405 against 0.135 here); see `docs/research_v4.md` and
+> `PROGRESS.md`. The security, deployment and agent sections below still
+> describe how the system works.
+
 **Date:** 21 September 2026
 **Release tag:** `v2.1-quality` (rollback points: `v2.0-verified`, `v1.0-baseline`)
 **Live application:** <https://opspilot-web-hj6k.onrender.com>

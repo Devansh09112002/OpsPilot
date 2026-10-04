@@ -362,14 +362,20 @@ def _investigations_in_last_hour(db) -> int:
     """
     from datetime import UTC, datetime, timedelta
 
-    from sqlalchemy import func, select
+    from sqlalchemy import func, or_, select
 
     from app.db.models import Investigation
 
     since = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
+    # Same rule as the cap: a deterministic brief never reaches the provider.
+    uses_provider = or_(
+        Investigation.report.is_(None),
+        Investigation.report["mode"].astext.is_(None),
+        Investigation.report["mode"].astext != "deterministic",
+    )
     return db.execute(
         select(func.count(Investigation.investigation_id)).where(
-            Investigation.created_at >= since
+            Investigation.created_at >= since, uses_provider
         )
     ).scalar_one()
 
@@ -423,3 +429,32 @@ def test_the_global_cap_is_shared_across_sessions(
     refused = second_client.post(f"{API}/investigations", json=payload)
     assert refused.status_code == 429
     assert refused.json()["error"]["detail"]["limit_type"] == "global_hourly"
+
+
+def test_deterministic_briefs_do_not_use_up_the_shared_ai_cap(
+    client, db, seeded_order, stub_llm_ok, monkeypatch
+):
+    """A brief that never calls the provider must not spend its quota.
+
+    Before this, the cap counted every investigation row, so a handful of
+    free lane briefs could block AI investigations for every visitor.
+    """
+    from app.core.config import get_settings
+    from app.services import situations
+
+    found = situations.list_situations(db, "2018-08-15", limit=1)
+    if not found:
+        pytest.skip("no lane situation in the seeded slice")
+    settings = get_settings()
+    monkeypatch.setattr(
+        settings, "investigations_global_per_hour",
+        _investigations_in_last_hour(db) + 1, raising=False,
+    )
+    for _ in range(3):
+        r = client.post(
+            f"{API}/situations/{found[0].situation_id}/investigations?mode=deterministic")
+        assert r.status_code == 200
+
+    order_id, snapshot_id = seeded_order
+    payload = {"order_id": order_id, "snapshot_id": snapshot_id}
+    assert client.post(f"{API}/investigations", json=payload).status_code == 200

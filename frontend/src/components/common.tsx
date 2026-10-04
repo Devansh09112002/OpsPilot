@@ -1,17 +1,17 @@
 /** Small shared presentational pieces. */
 
-import type { RiskBand } from "../types";
+import type { ArrivalTag, RiskBand } from "../types";
 
 export function RiskBadge({ band }: { band: RiskBand }) {
   return <span className={`badge badge--${band}`}>{band}</span>;
 }
 
-/** Calibrated risk as a percentage, with a bar scaled so the useful range is
- *  readable. Most calibrated estimates sit under 0.25, so scaling the bar to
- *  the full 0-100% would render every row as a nearly-empty sliver. */
+/** The model's estimated chance of missing the promise, as a percentage with a
+ *  bar. An estimate, not a calibrated frequency: it runs high in calm periods,
+ *  which is why the queue is ordered by priority rank rather than by this. */
 export function RiskScore({ value, band }: { value: number; band: RiskBand }) {
   const colour = `var(--risk-${band})`;
-  const width = Math.min(100, Math.round((value / 0.4) * 100));
+  const width = Math.min(100, Math.round(value * 100));
   return (
     <span className="risk-cell">
       <span className="mono">{formatRisk(value)}</span>
@@ -22,7 +22,7 @@ export function RiskScore({ value, band }: { value: number; band: RiskBand }) {
   );
 }
 
-/** A calibrated probability, shown as a percentage a person can act on. */
+/** A probability estimate, shown as a percentage. */
 export function formatRisk(value: number): string {
   if (value >= 0.095) return `${(value * 100).toFixed(0)}%`;
   return `${(value * 100).toFixed(1)}%`;
@@ -103,4 +103,44 @@ export function shortId(id: string, n = 10): string {
 
 export function formatBRL(v: number): string {
   return `R$ ${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+const TAG_LABEL: Record<ArrivalTag, string> = {
+  likely_late: "Likely late",
+  tight: "Tight",
+  on_track: "On track",
+  overdue: "Overdue",
+  unknown: "--",
+};
+const TAG_CLASS: Record<ArrivalTag, string> = {
+  likely_late: "badge--high",
+  tight: "badge--medium",
+  on_track: "badge--low",
+  overdue: "badge--overdue",
+  unknown: "badge--neutral",
+};
+
+/** How the forecast arrival compares with the promised date. A forecast. */
+export function ArrivalBadge({ tag }: { tag: ArrivalTag }) {
+  return <span className={`badge ${TAG_CLASS[tag]}`}>{TAG_LABEL[tag]}</span>;
+}
+
+/** A calendar day ("2018-08-18"), formatted without a timezone shift.
+ *  `new Date("2018-08-18")` is UTC midnight, which renders as the previous
+ *  day anywhere west of Greenwich. */
+export function formatDay(day: string | null): string {
+  if (!day) return "--";
+  const [y, m, d] = day.slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** Days of buffer against the promise, in words. */
+export function formatBuffer(days: number | null): string {
+  if (days === null) return "--";
+  if (days < 0) return `${-days} day${days === -1 ? "" : "s"} after the promise`;
+  if (days === 0) return "on the promised day";
+  return `${days} day${days === 1 ? "" : "s"} before the promise`;
 }

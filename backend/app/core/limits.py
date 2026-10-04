@@ -18,7 +18,7 @@ from collections import defaultdict, deque
 from datetime import UTC, datetime, timedelta
 from threading import Lock
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -84,14 +84,21 @@ def enforce_investigation_budget(db: Session, session: GuestSession) -> None:
 
     # Global caps, keeping the deployment inside the provider's free-tier
     # quota. Both are checked before the call is made, so hitting a limit
-    # costs a 429 rather than a failed paid request.
+    # costs a 429 rather than a failed paid request. A deterministic lane brief
+    # never calls the provider, so it is not counted: otherwise free briefs
+    # would use up the AI budget for every visitor.
+    uses_provider = or_(
+        Investigation.report.is_(None),
+        Investigation.report["mode"].astext.is_(None),
+        Investigation.report["mode"].astext != "deterministic",
+    )
     for window, limit, label in (
         (timedelta(hours=1), settings.investigations_global_per_hour, "global_hourly"),
         (timedelta(days=1), settings.investigations_global_per_day, "global_daily"),
     ):
         used = db.execute(
             select(func.count(Investigation.investigation_id)).where(
-                Investigation.created_at >= now - window
+                Investigation.created_at >= now - window, uses_provider
             )
         ).scalar_one()
         if used >= limit:

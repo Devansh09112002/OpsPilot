@@ -49,13 +49,20 @@ def test_unknown_snapshot_returns_actionable_error(client):
     assert "available" in body["detail"]
 
 
-def test_orders_are_ranked_by_risk_descending(client):
+def test_orders_are_ranked_by_priority(client):
+    """The queue is the priority list: rank 1, 2, 3... in order."""
     items = client.get(f"{API}/orders?snapshot_id=2018-08-15&limit=25").json()["items"]
-    # Calibration is monotonic, so ordering by the raw ranking score also
-    # leaves the calibrated probabilities non-increasing.
-    risks = [i["risk_probability"] for i in items]
-    assert risks == sorted(risks, reverse=True)
-    assert all(0.0 <= r <= 1.0 for r in risks)
+    assert [i["priority_rank"] for i in items] == list(range(1, 26))
+    assert all(i["risk_band"] == "high" for i in items)
+    assert all(0.0 <= i["risk_probability"] <= 1.0 for i in items)
+
+
+def test_every_listed_order_carries_its_arrival_forecast(client):
+    items = client.get(f"{API}/orders?snapshot_id=2018-08-15&limit=50").json()["items"]
+    for i in items:
+        assert i["arrival_earliest"] <= i["expected_arrival"] <= i["arrival_latest"]
+        assert i["arrival_tag"] in ("likely_late", "tight", "on_track")
+        assert isinstance(i["buffer_days"], int)
 
 
 def test_orders_exclude_overdue_by_default(client):
@@ -122,7 +129,8 @@ def test_order_detail_exposes_no_outcome(client, seeded_order):
     order_id, snapshot_id = seeded_order
     body = client.get(f"{API}/orders/{order_id}?snapshot_id={snapshot_id}").json()
     _assert_no_outcome(body)
-    assert body["prediction_as_of"] == body["order_delivered_carrier_date"]
+    # Scored on the snapshot day, from what was known at its start.
+    assert body["prediction_as_of"] == body["snapshot_at"]
 
 
 def test_order_not_in_snapshot_is_404(client):
@@ -144,24 +152,26 @@ def test_prediction_matches_the_stored_queue_score(client, seeded_order):
 
     assert served["risk_probability"] == pytest.approx(listed["risk_probability"], abs=1e-4)
     assert served["ranking_score"] == pytest.approx(listed["ranking_score"], abs=1e-5)
+    assert served["priority_rank"] == listed["priority_rank"]
+    assert served["expected_arrival"] == listed["expected_arrival"]
     assert served["model_version"] == listed["model_version"]
     assert served["risk_band"] == listed["risk_band"]
-    assert "carrier handover" in served["disclaimer"].lower()
+    assert "snapshot day" in served["disclaimer"].lower()
 
 
-def test_served_probability_is_calibrated_not_the_raw_score(client, seeded_order):
-    """The displayed number must be the calibrated one, not the raw output.
+def test_the_probability_is_not_presented_as_calibrated(client, seeded_order):
+    """The served probability is an estimate that moves with conditions.
 
-    Before calibration a raw 0.65 corresponded to a ~2% observed late rate, so
-    serving the raw value as a probability was misleading.
+    It ran high on the calm held-out period, so the API must not claim it is
+    calibrated; the ranking is the validated quantity.
     """
     order_id, snapshot_id = seeded_order
     served = client.post(
         f"{API}/predictions", json={"order_id": order_id, "snapshot_id": snapshot_id}
     ).json()
-    assert served["calibrated"] is True
-    assert served["risk_probability"] != pytest.approx(served["ranking_score"], abs=1e-6)
+    assert served["calibrated"] is False
     assert 0.0 <= served["risk_probability"] <= 1.0
+    assert "forecast" in served["disclaimer"].lower()
 
 
 def test_prediction_explains_itself(client, seeded_order):
@@ -181,8 +191,8 @@ def test_prediction_explains_itself(client, seeded_order):
     assert shares == sorted(shares, reverse=True)
 
 
-def test_queue_is_ordered_by_the_raw_score_not_the_calibrated_one(client):
-    """Isotonic calibration creates ties; the raw score keeps the ranking exact."""
+def test_queue_is_ordered_by_the_ranking_score(client):
+    """The validated quantity sorts the queue, not the probability."""
     items = client.get(f"{API}/orders?snapshot_id=2018-08-15&limit=50").json()["items"]
     ranks = [i["ranking_score"] for i in items]
     assert ranks == sorted(ranks, reverse=True)
@@ -221,8 +231,9 @@ def test_meta_exposes_versions_and_attribution(client):
     meta = client.get(f"{API}/meta").json()
     assert meta["model_version"]
     assert meta["policy_version"].startswith("demo-policy-")
-    assert meta["calibrated"] is True
-    assert meta["band_thresholds"]["high"] > meta["band_thresholds"]["medium"]
+    assert meta["calibrated"] is False
+    assert "50" in meta["bands"]["high"]
+    assert meta["test_precision_at_50"] > 0.4
     assert "CC BY-NC-SA" in meta["dataset"]["license"]
 
 

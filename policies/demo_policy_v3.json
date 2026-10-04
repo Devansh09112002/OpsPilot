@@ -1,0 +1,73 @@
+{
+  "policy_version": "demo-policy-v3",
+  "effective_from": "2018-01-01",
+  "notice": "Demonstration policy for the OpsPilot demo environment. It does not represent Olist or any real operator.",
+  "change_note": "v3 states escalation on the model's validated output: its ranking. An order qualifies when it is in the day's top-50 priority review list with three or fewer days left. v2 used a 0.15 threshold on a probability, which was right for a calibrated handover score; the snapshot-day model's probability moves with network conditions, so a fixed threshold would escalate far more orders on a congested day than on a calm one. There is still exactly one cut in the policy: the review list. v3 also adds EVI-06 for arrival estimates, and aligns the ESC-02 re-assessment point with the ESC-01 window.",
+  "sections": [
+    {
+      "section_id": "ACT-01",
+      "title": "Authorisation of actions",
+      "text": "The investigation workflow may only propose an escalation. Creating an escalation ticket requires explicit human approval recorded through the OpsPilot interface. No automated approval is permitted under any circumstances."
+    },
+    {
+      "section_id": "ACT-02",
+      "title": "Simulated actions only",
+      "text": "All tickets created in this environment are simulated. No courier, seller or customer is contacted, and no real fulfilment action is taken."
+    },
+    {
+      "section_id": "ESC-01",
+      "title": "Escalation of an in-transit order",
+      "text": "An in-transit order qualifies for carrier escalation when it is in the day's priority review list - the top 50 of the snapshot's queue as ranked by the delivery-risk model - AND three or fewer days remain before the promised delivery date. Both conditions must hold. The ranking is the model's validated output; its probability estimate moves with network conditions and is not used as a threshold."
+    },
+    {
+      "section_id": "ESC-02",
+      "title": "Priority order with remaining slack",
+      "text": "An order in the day's priority review list with more than three days of remaining slack is placed under monitoring rather than escalated. Re-assess when three days remain."
+    },
+    {
+      "section_id": "ESC-03",
+      "title": "Orders outside the priority review list",
+      "text": "An order outside the day's priority review list is not escalated on the model's assessment alone, regardless of remaining slack. Record the assessment and take no further action."
+    },
+    {
+      "section_id": "ESC-04",
+      "title": "Overdue orders",
+      "text": "An order already past its promised delivery date is handled under the overdue-recovery process, not the predictive escalation process. Model rankings and estimates are not used to justify escalating an order whose deadline has already passed."
+    },
+    {
+      "section_id": "ESC-05",
+      "title": "Escalation of a lane situation",
+      "text": "A lane situation - the flagged orders travelling one seller-state to customer-state lane in one snapshot - qualifies for a single carrier escalation when at least three of its member orders each independently qualify under ESC-01. The lane rule composes the order rule; it introduces no separate risk threshold. One escalation covers every member order, and the covered order identifiers must be recorded on the resulting ticket."
+    },
+    {
+      "section_id": "EVI-01",
+      "title": "Evidence requirements for an escalation",
+      "text": "An escalation proposal must cite the order identifier, the order's priority rank with the model version, and the remaining days before the promised date. A proposal that cannot cite all three is recorded as insufficient evidence and no escalation is raised."
+    },
+    {
+      "section_id": "EVI-02",
+      "title": "Use of historical comparisons",
+      "text": "A historical late-rate comparison may support an escalation but may never be its sole justification. Comparisons computed from fewer than thirty delivered orders are not cited. Historical association is not to be reported as a cause of delay."
+    },
+    {
+      "section_id": "EVI-03",
+      "title": "Use of per-order risk factors",
+      "text": "The factors shown alongside a ranking describe which inputs moved the ranking model's score for that order. They are attributions of the model's own output, not established causes of delay, and must be described as such. A factor may be cited as context for a recommendation but never as a demonstrated cause."
+    },
+    {
+      "section_id": "EVI-04",
+      "title": "Evidence requirements for a lane situation",
+      "text": "An assessment of a lane situation may cite only orders that belong to that situation, and may state only counts and aggregates returned by the situation tools. The number of member orders, the number qualifying under ESC-01, and the lane's risk load must each come from a tool result rather than from the assessment's own arithmetic. The risk load compares lanes; it is not a forecast of how many orders will be late."
+    },
+    {
+      "section_id": "EVI-05",
+      "title": "Lane history is background, not forecast",
+      "text": "A lane's historical late rate is measured only over orders delivered before the snapshot date, and on this dataset a lane's past rate is only weakly related to its future rate (rank correlation +0.29). It may be cited as background. It may not be presented as a prediction of the lane's future performance, and it may not be used as the basis of an escalation."
+    },
+    {
+      "section_id": "EVI-06",
+      "title": "Arrival estimates are forecasts",
+      "text": "The expected arrival date and its range come from the survival model and are a forecast that can be wrong. They may be cited as context for urgency, never as a certainty, and never as the sole basis of an escalation."
+    }
+  ]
+}

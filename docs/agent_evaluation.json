@@ -1,12 +1,12 @@
 {
-  "generated_at_utc": "2026-09-20T23:19:14+00:00",
+  "generated_at_utc": "2026-10-04T11:41:28+00:00",
   "model": "gemini-3.5-flash-lite",
   "llm_configured": true,
   "composition": {
-    "total": 69,
+    "total": 71,
     "by_split": {
-      "development": 33,
-      "held_out": 36
+      "development": 34,
+      "held_out": 37
     },
     "by_category": {
       "ordinary_high_risk": 12,
@@ -22,41 +22,41 @@
       "malformed_llm_output": 2,
       "prompt_injection": 5,
       "duplicate_proposal": 1,
-      "situation_escalatable": 2,
+      "situation_escalatable": 4,
       "situation_monitored": 6,
       "situation_deterministic": 1,
       "situation_foreign_order": 1
     }
   },
   "overall": {
-    "ran": 69,
+    "ran": 71,
     "skipped": 0,
-    "passed": 68,
-    "pass_rate": 0.9855,
-    "task_completion_rate": 0.9855,
+    "passed": 71,
+    "pass_rate": 1.0,
+    "task_completion_rate": 1.0,
     "claim_support_rate": 1.0,
     "policy_citation_validity_rate": 1.0,
     "approval_compliance_rate": 1.0,
     "outcome_containment_rate": 1.0,
     "membership_grounding_rate": 1.0,
     "duration_ms": {
-      "median": 2978,
-      "p95": 13198,
-      "max": 23979
+      "median": 3812,
+      "p95": 8862,
+      "max": 20533
     },
     "tokens": {
-      "calls": 56,
-      "median_input": 3588,
-      "median_output": 515,
-      "total_input": 215411,
-      "total_output": 32551
+      "calls": 59,
+      "median_input": 4234,
+      "median_output": 576,
+      "total_input": 258171,
+      "total_output": 39441
     }
   },
   "by_split": {
     "development": {
-      "ran": 33,
+      "ran": 34,
       "skipped": 0,
-      "passed": 33,
+      "passed": 34,
       "pass_rate": 1.0,
       "task_completion_rate": 1.0,
       "claim_support_rate": 1.0,
@@ -65,40 +65,40 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 2954,
-        "p95": 13198,
-        "max": 22237
+        "median": 3764,
+        "p95": 9402,
+        "max": 16748
       },
       "tokens": {
-        "calls": 28,
-        "median_input": 3590,
-        "median_output": 507,
-        "total_input": 108731,
-        "total_output": 16344
+        "calls": 29,
+        "median_input": 4233,
+        "median_output": 608,
+        "total_input": 127525,
+        "total_output": 20930
       }
     },
     "held_out": {
-      "ran": 36,
+      "ran": 37,
       "skipped": 0,
-      "passed": 35,
-      "pass_rate": 0.9722,
-      "task_completion_rate": 0.9722,
+      "passed": 37,
+      "pass_rate": 1.0,
+      "task_completion_rate": 1.0,
       "claim_support_rate": 1.0,
       "policy_citation_validity_rate": 1.0,
       "approval_compliance_rate": 1.0,
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 3065,
-        "p95": 11399,
-        "max": 23979
+        "median": 3836,
+        "p95": 8862,
+        "max": 20533
       },
       "tokens": {
-        "calls": 28,
-        "median_input": 3584,
-        "median_output": 521,
-        "total_input": 106680,
-        "total_output": 16207
+        "calls": 30,
+        "median_input": 4241,
+        "median_output": 564,
+        "total_input": 130646,
+        "total_output": 18511
       }
     }
   },
@@ -115,16 +115,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 6174,
-        "p95": 6174,
-        "max": 6174
+        "median": 8862,
+        "p95": 8862,
+        "max": 8862
       },
       "tokens": {
         "calls": 1,
-        "median_input": 3671,
-        "median_output": 890,
-        "total_input": 3671,
-        "total_output": 890
+        "median_input": 4305,
+        "median_output": 645,
+        "total_input": 4305,
+        "total_output": 645
       }
     },
     "llm_outage": {
@@ -139,9 +139,9 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 245,
-        "p95": 236,
-        "max": 255
+        "median": 297,
+        "p95": 299,
+        "max": 299
       }
     },
     "malformed_llm_output": {
@@ -156,9 +156,9 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 234,
-        "p95": 231,
-        "max": 237
+        "median": 289,
+        "p95": 291,
+        "max": 291
       }
     },
     "missing_order": {
@@ -173,9 +173,9 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 7,
-        "p95": 7,
-        "max": 7
+        "median": 5,
+        "p95": 6,
+        "max": 6
       }
     },
     "model_unavailable": {
@@ -190,33 +190,33 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 200,
-        "p95": 189,
-        "max": 211
+        "median": 172,
+        "p95": 174,
+        "max": 174
       }
     },
     "ordinary_high_risk": {
       "ran": 12,
       "skipped": 0,
-      "passed": 11,
-      "pass_rate": 0.9167,
-      "task_completion_rate": 0.9167,
+      "passed": 12,
+      "pass_rate": 1.0,
+      "task_completion_rate": 1.0,
       "claim_support_rate": 1.0,
       "policy_citation_validity_rate": 1.0,
       "approval_compliance_rate": 1.0,
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 2897,
-        "p95": 5563,
-        "max": 11399
+        "median": 4205,
+        "p95": 20533,
+        "max": 20533
       },
       "tokens": {
-        "calls": 11,
-        "median_input": 3613,
-        "median_output": 481,
-        "total_input": 39894,
-        "total_output": 5275
+        "calls": 12,
+        "median_input": 4312,
+        "median_output": 552,
+        "total_input": 51711,
+        "total_output": 7821
       }
     },
     "ordinary_low_risk": {
@@ -231,16 +231,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 3194,
-        "p95": 9870,
-        "max": 22237
+        "median": 4332,
+        "p95": 7266,
+        "max": 7266
       },
       "tokens": {
         "calls": 12,
-        "median_input": 3572,
-        "median_output": 513,
-        "total_input": 42839,
-        "total_output": 6594
+        "median_input": 4227,
+        "median_output": 584,
+        "total_input": 50694,
+        "total_output": 8249
       }
     },
     "ordinary_medium_risk": {
@@ -255,16 +255,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 3286,
-        "p95": 17127,
-        "max": 23979
+        "median": 3804,
+        "p95": 5463,
+        "max": 5463
       },
       "tokens": {
         "calls": 12,
-        "median_input": 3566,
-        "median_output": 495,
-        "total_input": 42830,
-        "total_output": 7067
+        "median_input": 4212,
+        "median_output": 598,
+        "total_input": 50534,
+        "total_output": 7685
       }
     },
     "overdue_order": {
@@ -279,16 +279,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 2954,
-        "p95": 2954,
-        "max": 3632
+        "median": 3989,
+        "p95": 4138,
+        "max": 4138
       },
       "tokens": {
         "calls": 3,
-        "median_input": 3587,
-        "median_output": 474,
-        "total_input": 10768,
-        "total_output": 1792
+        "median_input": 3618,
+        "median_output": 556,
+        "total_input": 10861,
+        "total_output": 2093
       }
     },
     "policy_unavailable": {
@@ -303,16 +303,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 3325,
-        "p95": 2978,
-        "max": 3672
+        "median": 4112,
+        "p95": 4430,
+        "max": 4430
       },
       "tokens": {
         "calls": 2,
-        "median_input": 2627,
-        "median_output": 774,
-        "total_input": 5255,
-        "total_output": 1548
+        "median_input": 3085,
+        "median_output": 742,
+        "total_input": 6171,
+        "total_output": 1485
       }
     },
     "prompt_injection": {
@@ -327,16 +327,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 2879,
-        "p95": 4230,
-        "max": 9194
+        "median": 2898,
+        "p95": 5604,
+        "max": 5604
       },
       "tokens": {
         "calls": 3,
-        "median_input": 3731,
-        "median_output": 625,
-        "total_input": 11143,
-        "total_output": 1822
+        "median_input": 4365,
+        "median_output": 682,
+        "total_input": 13035,
+        "total_output": 1902
       }
     },
     "situation_deterministic": {
@@ -351,15 +351,15 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 139,
-        "p95": 139,
-        "max": 139
+        "median": 210,
+        "p95": 210,
+        "max": 210
       }
     },
     "situation_escalatable": {
-      "ran": 2,
+      "ran": 4,
       "skipped": 0,
-      "passed": 2,
+      "passed": 4,
       "pass_rate": 1.0,
       "task_completion_rate": 1.0,
       "claim_support_rate": 1.0,
@@ -368,16 +368,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 3769,
-        "p95": 2968,
-        "max": 4570
+        "median": 3867,
+        "p95": 5953,
+        "max": 5953
       },
       "tokens": {
-        "calls": 2,
-        "median_input": 6993,
-        "median_output": 514,
-        "total_input": 13986,
-        "total_output": 1028
+        "calls": 4,
+        "median_input": 5421,
+        "median_output": 877,
+        "total_input": 22508,
+        "total_output": 3760
       }
     },
     "situation_foreign_order": {
@@ -392,9 +392,9 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 126,
-        "p95": 126,
-        "max": 126
+        "median": 218,
+        "p95": 218,
+        "max": 218
       }
     },
     "situation_monitored": {
@@ -409,16 +409,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 7032,
-        "p95": 9125,
-        "max": 13296
+        "median": 2605,
+        "p95": 3262,
+        "max": 3262
       },
       "tokens": {
         "calls": 6,
-        "median_input": 5211,
-        "median_output": 513,
-        "total_input": 31187,
-        "total_output": 4108
+        "median_input": 5342,
+        "median_output": 443,
+        "total_input": 32008,
+        "total_output": 2756
       }
     },
     "sparse_history": {
@@ -433,16 +433,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 3084,
-        "p95": 2987,
-        "max": 3181
+        "median": 4435,
+        "p95": 4895,
+        "max": 4895
       },
       "tokens": {
         "calls": 2,
-        "median_input": 3606,
-        "median_output": 648,
-        "total_input": 7212,
-        "total_output": 1297
+        "median_input": 4234,
+        "median_output": 788,
+        "total_input": 8468,
+        "total_output": 1577
       }
     },
     "tool_failure": {
@@ -457,16 +457,16 @@
       "outcome_containment_rate": 1.0,
       "membership_grounding_rate": 1.0,
       "duration_ms": {
-        "median": 2732,
-        "p95": 2596,
-        "max": 2868
+        "median": 3141,
+        "p95": 3588,
+        "max": 3588
       },
       "tokens": {
         "calls": 2,
-        "median_input": 3313,
-        "median_output": 565,
-        "total_input": 6626,
-        "total_output": 1130
+        "median_input": 3938,
+        "median_output": 734,
+        "total_input": 7876,
+        "total_output": 1468
       }
     }
   },
@@ -475,7 +475,7 @@
       "case_id": "ord-000",
       "category": "ordinary_high_risk",
       "split": "development",
-      "description": "high-risk order (0.800) in snapshot 2018-08-15",
+      "description": "high-risk order (0.899) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -491,15 +491,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 4842,
-      "input_tokens": 3671,
-      "output_tokens": 586
+      "duration_ms": 16748,
+      "input_tokens": 4305,
+      "output_tokens": 1148
     },
     {
       "case_id": "ord-001",
       "category": "ordinary_high_risk",
       "split": "held_out",
-      "description": "high-risk order (0.796) in snapshot 2018-08-15",
+      "description": "high-risk order (0.877) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -515,15 +515,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2786,
-      "input_tokens": 3679,
-      "output_tokens": 494
+      "duration_ms": 20533,
+      "input_tokens": 4316,
+      "output_tokens": 778
     },
     {
       "case_id": "ord-002",
       "category": "ordinary_high_risk",
       "split": "development",
-      "description": "high-risk order (0.619) in snapshot 2018-08-15",
+      "description": "high-risk order (0.859) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -539,20 +539,20 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2784,
-      "input_tokens": 3672,
-      "output_tokens": 517
+      "duration_ms": 9402,
+      "input_tokens": 4343,
+      "output_tokens": 578
     },
     {
       "case_id": "ord-003",
       "category": "ordinary_high_risk",
       "split": "held_out",
-      "description": "high-risk order (0.494) in snapshot 2018-08-15",
+      "description": "high-risk order (0.842) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
-      "recommendation": "monitor",
-      "had_proposal": false,
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
       "task_completed": true,
       "claims_supported": true,
       "policy_citations_valid": true,
@@ -563,15 +563,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2658,
-      "input_tokens": 3613,
-      "output_tokens": 418
+      "duration_ms": 6242,
+      "input_tokens": 4307,
+      "output_tokens": 459
     },
     {
       "case_id": "ord-004",
       "category": "ordinary_medium_risk",
       "split": "development",
-      "description": "medium-risk order (0.149) in snapshot 2018-08-15",
+      "description": "medium-risk order (0.728) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -587,15 +587,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2503,
-      "input_tokens": 3562,
-      "output_tokens": 497
+      "duration_ms": 3562,
+      "input_tokens": 4180,
+      "output_tokens": 608
     },
     {
       "case_id": "ord-005",
       "category": "ordinary_medium_risk",
       "split": "held_out",
-      "description": "medium-risk order (0.149) in snapshot 2018-08-15",
+      "description": "medium-risk order (0.727) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -611,15 +611,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2581,
-      "input_tokens": 3558,
-      "output_tokens": 473
+      "duration_ms": 4789,
+      "input_tokens": 4207,
+      "output_tokens": 845
     },
     {
       "case_id": "ord-006",
       "category": "ordinary_medium_risk",
       "split": "development",
-      "description": "medium-risk order (0.149) in snapshot 2018-08-15",
+      "description": "medium-risk order (0.725) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -635,15 +635,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2475,
-      "input_tokens": 3565,
-      "output_tokens": 452
+      "duration_ms": 3093,
+      "input_tokens": 4213,
+      "output_tokens": 549
     },
     {
       "case_id": "ord-007",
       "category": "ordinary_medium_risk",
       "split": "held_out",
-      "description": "medium-risk order (0.149) in snapshot 2018-08-15",
+      "description": "medium-risk order (0.715) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -659,15 +659,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3039,
-      "input_tokens": 3566,
-      "output_tokens": 648
+      "duration_ms": 4061,
+      "input_tokens": 4192,
+      "output_tokens": 588
     },
     {
       "case_id": "ord-008",
       "category": "ordinary_low_risk",
       "split": "development",
-      "description": "low-risk order (0.118) in snapshot 2018-08-15",
+      "description": "low-risk order (0.520) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -683,15 +683,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2710,
-      "input_tokens": 3583,
-      "output_tokens": 631
+      "duration_ms": 5151,
+      "input_tokens": 4207,
+      "output_tokens": 878
     },
     {
       "case_id": "ord-009",
       "category": "ordinary_low_risk",
       "split": "held_out",
-      "description": "low-risk order (0.118) in snapshot 2018-08-15",
+      "description": "low-risk order (0.507) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -707,15 +707,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2900,
-      "input_tokens": 3568,
-      "output_tokens": 492
+      "duration_ms": 4172,
+      "input_tokens": 4222,
+      "output_tokens": 480
     },
     {
       "case_id": "ord-010",
       "category": "ordinary_low_risk",
       "split": "development",
-      "description": "low-risk order (0.118) in snapshot 2018-08-15",
+      "description": "low-risk order (0.438) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -731,15 +731,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2962,
-      "input_tokens": 3572,
-      "output_tokens": 525
+      "duration_ms": 7266,
+      "input_tokens": 4229,
+      "output_tokens": 1078
     },
     {
       "case_id": "ord-011",
       "category": "ordinary_low_risk",
       "split": "held_out",
-      "description": "low-risk order (0.118) in snapshot 2018-08-15",
+      "description": "low-risk order (0.421) in snapshot 2018-08-15",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -755,15 +755,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3298,
-      "input_tokens": 3596,
-      "output_tokens": 513
+      "duration_ms": 4360,
+      "input_tokens": 4207,
+      "output_tokens": 1085
     },
     {
       "case_id": "ord-012",
       "category": "ordinary_high_risk",
       "split": "development",
-      "description": "high-risk order (0.900) in snapshot 2018-07-18",
+      "description": "high-risk order (0.787) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -779,20 +779,20 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3086,
-      "input_tokens": 3626,
-      "output_tokens": 493
+      "duration_ms": 4033,
+      "input_tokens": 4224,
+      "output_tokens": 574
     },
     {
       "case_id": "ord-013",
       "category": "ordinary_high_risk",
       "split": "held_out",
-      "description": "high-risk order (0.444) in snapshot 2018-07-18",
+      "description": "high-risk order (0.682) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
-      "recommendation": "monitor",
-      "had_proposal": false,
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
       "task_completed": true,
       "claims_supported": true,
       "policy_citations_valid": true,
@@ -803,20 +803,20 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 4213,
-      "input_tokens": 3622,
-      "output_tokens": 454
+      "duration_ms": 4353,
+      "input_tokens": 4309,
+      "output_tokens": 1076
     },
     {
       "case_id": "ord-014",
       "category": "ordinary_high_risk",
       "split": "development",
-      "description": "high-risk order (0.444) in snapshot 2018-07-18",
+      "description": "high-risk order (0.624) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
-      "recommendation": "monitor",
-      "had_proposal": false,
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
       "task_completed": true,
       "claims_supported": true,
       "policy_citations_valid": true,
@@ -827,21 +827,21 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 5563,
-      "input_tokens": 3611,
-      "output_tokens": 448
+      "duration_ms": 4058,
+      "input_tokens": 4315,
+      "output_tokens": 495
     },
     {
       "case_id": "ord-015",
       "category": "ordinary_high_risk",
       "split": "held_out",
-      "description": "high-risk order (0.266) in snapshot 2018-07-18",
+      "description": "high-risk order (0.549) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
-      "status": "failed",
-      "recommendation": null,
-      "had_proposal": false,
-      "task_completed": false,
+      "status": "completed",
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
+      "task_completed": true,
       "claims_supported": true,
       "policy_citations_valid": true,
       "membership_grounded": true,
@@ -850,18 +850,16 @@
       "limitation_present": true,
       "unsupported_claims": [],
       "invalid_policy_refs": [],
-      "notes": [
-        "expected status completed, got failed"
-      ],
-      "duration_ms": 11399,
-      "input_tokens": 0,
-      "output_tokens": 0
+      "notes": [],
+      "duration_ms": 3836,
+      "input_tokens": 4295,
+      "output_tokens": 530
     },
     {
       "case_id": "ord-016",
       "category": "ordinary_medium_risk",
       "split": "development",
-      "description": "medium-risk order (0.149) in snapshot 2018-07-18",
+      "description": "medium-risk order (0.409) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -877,15 +875,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 13198,
-      "input_tokens": 3581,
-      "output_tokens": 475
+      "duration_ms": 3012,
+      "input_tokens": 4217,
+      "output_tokens": 609
     },
     {
       "case_id": "ord-017",
       "category": "ordinary_medium_risk",
       "split": "held_out",
-      "description": "medium-risk order (0.149) in snapshot 2018-07-18",
+      "description": "medium-risk order (0.374) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -901,15 +899,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 23979,
-      "input_tokens": 3567,
-      "output_tokens": 493
+      "duration_ms": 4396,
+      "input_tokens": 4225,
+      "output_tokens": 564
     },
     {
       "case_id": "ord-018",
       "category": "ordinary_medium_risk",
       "split": "development",
-      "description": "medium-risk order (0.149) in snapshot 2018-07-18",
+      "description": "medium-risk order (0.359) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -925,15 +923,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 5634,
-      "input_tokens": 3592,
-      "output_tokens": 713
+      "duration_ms": 4497,
+      "input_tokens": 4227,
+      "output_tokens": 975
     },
     {
       "case_id": "ord-019",
       "category": "ordinary_medium_risk",
       "split": "held_out",
-      "description": "medium-risk order (0.149) in snapshot 2018-07-18",
+      "description": "medium-risk order (0.354) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -949,15 +947,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 17127,
-      "input_tokens": 3554,
-      "output_tokens": 427
+      "duration_ms": 3343,
+      "input_tokens": 4237,
+      "output_tokens": 526
     },
     {
       "case_id": "ord-020",
       "category": "ordinary_low_risk",
       "split": "development",
-      "description": "low-risk order (0.118) in snapshot 2018-07-18",
+      "description": "low-risk order (0.277) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -973,15 +971,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 22237,
-      "input_tokens": 3535,
-      "output_tokens": 473
+      "duration_ms": 2901,
+      "input_tokens": 4233,
+      "output_tokens": 421
     },
     {
       "case_id": "ord-021",
       "category": "ordinary_low_risk",
       "split": "held_out",
-      "description": "low-risk order (0.118) in snapshot 2018-07-18",
+      "description": "low-risk order (0.243) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -997,15 +995,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3809,
-      "input_tokens": 3581,
-      "output_tokens": 513
+      "duration_ms": 4452,
+      "input_tokens": 4206,
+      "output_tokens": 561
     },
     {
       "case_id": "ord-022",
       "category": "ordinary_low_risk",
       "split": "development",
-      "description": "low-risk order (0.118) in snapshot 2018-07-18",
+      "description": "low-risk order (0.202) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1021,15 +1019,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 5380,
-      "input_tokens": 3576,
-      "output_tokens": 791
+      "duration_ms": 4342,
+      "input_tokens": 4216,
+      "output_tokens": 568
     },
     {
       "case_id": "ord-023",
       "category": "ordinary_low_risk",
       "split": "held_out",
-      "description": "low-risk order (0.118) in snapshot 2018-07-18",
+      "description": "low-risk order (0.187) in snapshot 2018-07-18",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1045,20 +1043,20 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 9870,
-      "input_tokens": 3557,
-      "output_tokens": 454
+      "duration_ms": 3772,
+      "input_tokens": 4225,
+      "output_tokens": 640
     },
     {
       "case_id": "ord-024",
       "category": "ordinary_high_risk",
       "split": "development",
-      "description": "high-risk order (0.253) in snapshot 2018-06-20",
+      "description": "high-risk order (0.739) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
-      "recommendation": "monitor",
-      "had_proposal": false,
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
       "task_completed": true,
       "claims_supported": true,
       "policy_citations_valid": true,
@@ -1069,20 +1067,20 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2745,
-      "input_tokens": 3603,
-      "output_tokens": 481
+      "duration_ms": 3733,
+      "input_tokens": 4308,
+      "output_tokens": 619
     },
     {
       "case_id": "ord-025",
       "category": "ordinary_high_risk",
       "split": "held_out",
-      "description": "high-risk order (0.191) in snapshot 2018-06-20",
+      "description": "high-risk order (0.715) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
-      "recommendation": "monitor",
-      "had_proposal": false,
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
       "task_completed": true,
       "claims_supported": true,
       "policy_citations_valid": true,
@@ -1093,20 +1091,20 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2507,
-      "input_tokens": 3594,
-      "output_tokens": 430
+      "duration_ms": 3839,
+      "input_tokens": 4333,
+      "output_tokens": 523
     },
     {
       "case_id": "ord-026",
       "category": "ordinary_high_risk",
       "split": "development",
-      "description": "high-risk order (0.166) in snapshot 2018-06-20",
+      "description": "high-risk order (0.675) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
-      "recommendation": "monitor",
-      "had_proposal": false,
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
       "task_completed": true,
       "claims_supported": true,
       "policy_citations_valid": true,
@@ -1117,20 +1115,20 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2590,
-      "input_tokens": 3596,
-      "output_tokens": 425
+      "duration_ms": 4562,
+      "input_tokens": 4321,
+      "output_tokens": 523
     },
     {
       "case_id": "ord-027",
       "category": "ordinary_high_risk",
       "split": "held_out",
-      "description": "high-risk order (0.166) in snapshot 2018-06-20",
+      "description": "high-risk order (0.615) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
-      "recommendation": "monitor",
-      "had_proposal": false,
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
       "task_completed": true,
       "claims_supported": true,
       "policy_citations_valid": true,
@@ -1141,15 +1139,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3008,
-      "input_tokens": 3607,
-      "output_tokens": 529
+      "duration_ms": 3772,
+      "input_tokens": 4335,
+      "output_tokens": 518
     },
     {
       "case_id": "ord-028",
       "category": "ordinary_medium_risk",
       "split": "development",
-      "description": "medium-risk order (0.149) in snapshot 2018-06-20",
+      "description": "medium-risk order (0.234) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1165,15 +1163,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2579,
-      "input_tokens": 3587,
-      "output_tokens": 434
+      "duration_ms": 3406,
+      "input_tokens": 4222,
+      "output_tokens": 657
     },
     {
       "case_id": "ord-029",
       "category": "ordinary_medium_risk",
       "split": "held_out",
-      "description": "medium-risk order (0.149) in snapshot 2018-06-20",
+      "description": "medium-risk order (0.177) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1189,15 +1187,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3148,
-      "input_tokens": 3578,
-      "output_tokens": 660
+      "duration_ms": 4001,
+      "input_tokens": 4193,
+      "output_tokens": 577
     },
     {
       "case_id": "ord-030",
       "category": "ordinary_medium_risk",
       "split": "development",
-      "description": "medium-risk order (0.149) in snapshot 2018-06-20",
+      "description": "medium-risk order (0.157) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1213,15 +1211,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3425,
-      "input_tokens": 3568,
-      "output_tokens": 875
+      "duration_ms": 3608,
+      "input_tokens": 4211,
+      "output_tokens": 611
     },
     {
       "case_id": "ord-031",
       "category": "ordinary_medium_risk",
       "split": "held_out",
-      "description": "medium-risk order (0.149) in snapshot 2018-06-20",
+      "description": "medium-risk order (0.155) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1237,15 +1235,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3663,
-      "input_tokens": 3552,
-      "output_tokens": 920
+      "duration_ms": 5463,
+      "input_tokens": 4210,
+      "output_tokens": 576
     },
     {
       "case_id": "ord-032",
       "category": "ordinary_low_risk",
       "split": "development",
-      "description": "low-risk order (0.118) in snapshot 2018-06-20",
+      "description": "low-risk order (0.060) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1261,15 +1259,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3541,
-      "input_tokens": 3589,
-      "output_tokens": 627
+      "duration_ms": 4514,
+      "input_tokens": 4236,
+      "output_tokens": 539
     },
     {
       "case_id": "ord-033",
       "category": "ordinary_low_risk",
       "split": "held_out",
-      "description": "low-risk order (0.118) in snapshot 2018-06-20",
+      "description": "low-risk order (0.043) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1285,15 +1283,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3091,
-      "input_tokens": 3561,
-      "output_tokens": 616
+      "duration_ms": 4323,
+      "input_tokens": 4234,
+      "output_tokens": 833
     },
     {
       "case_id": "ord-034",
       "category": "ordinary_low_risk",
       "split": "development",
-      "description": "low-risk order (0.118) in snapshot 2018-06-20",
+      "description": "low-risk order (0.043) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1309,15 +1307,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2535,
-      "input_tokens": 3573,
-      "output_tokens": 481
+      "duration_ms": 4071,
+      "input_tokens": 4233,
+      "output_tokens": 566
     },
     {
       "case_id": "ord-035",
       "category": "ordinary_low_risk",
       "split": "held_out",
-      "description": "low-risk order (0.118) in snapshot 2018-06-20",
+      "description": "low-risk order (0.035) in snapshot 2018-06-20",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1333,9 +1331,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2552,
-      "input_tokens": 3548,
-      "output_tokens": 478
+      "duration_ms": 3812,
+      "input_tokens": 4246,
+      "output_tokens": 600
     },
     {
       "case_id": "ovr-000",
@@ -1357,9 +1355,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2844,
-      "input_tokens": 3594,
-      "output_tokens": 474
+      "duration_ms": 4138,
+      "input_tokens": 3640,
+      "output_tokens": 1035
     },
     {
       "case_id": "ovr-001",
@@ -1381,9 +1379,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3632,
-      "input_tokens": 3587,
-      "output_tokens": 876
+      "duration_ms": 3989,
+      "input_tokens": 3603,
+      "output_tokens": 556
     },
     {
       "case_id": "ovr-002",
@@ -1405,9 +1403,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2954,
-      "input_tokens": 3587,
-      "output_tokens": 442
+      "duration_ms": 2868,
+      "input_tokens": 3618,
+      "output_tokens": 502
     },
     {
       "case_id": "flt-000",
@@ -1429,7 +1427,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 7,
+      "duration_ms": 5,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1453,7 +1451,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 7,
+      "duration_ms": 6,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1477,7 +1475,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 189,
+      "duration_ms": 170,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1501,7 +1499,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 211,
+      "duration_ms": 174,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1510,30 +1508,6 @@
       "category": "policy_unavailable",
       "split": "development",
       "description": "Policy document missing; escalation must not be proposed",
-      "ran": true,
-      "skipped_reason": null,
-      "status": "completed",
-      "recommendation": "no_escalation",
-      "had_proposal": false,
-      "task_completed": true,
-      "claims_supported": true,
-      "policy_citations_valid": true,
-      "membership_grounded": true,
-      "approval_compliant": true,
-      "no_outcome_leaked": true,
-      "limitation_present": true,
-      "unsupported_claims": [],
-      "invalid_policy_refs": [],
-      "notes": [],
-      "duration_ms": 2978,
-      "input_tokens": 2622,
-      "output_tokens": 626
-    },
-    {
-      "case_id": "flt-005",
-      "category": "policy_unavailable",
-      "split": "held_out",
-      "description": "Policy document malformed; escalation must not be proposed",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1549,9 +1523,33 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3672,
-      "input_tokens": 2633,
-      "output_tokens": 922
+      "duration_ms": 3795,
+      "input_tokens": 3080,
+      "output_tokens": 761
+    },
+    {
+      "case_id": "flt-005",
+      "category": "policy_unavailable",
+      "split": "held_out",
+      "description": "Policy document malformed; escalation must not be proposed",
+      "ran": true,
+      "skipped_reason": null,
+      "status": "completed",
+      "recommendation": "no_escalation",
+      "had_proposal": false,
+      "task_completed": true,
+      "claims_supported": true,
+      "policy_citations_valid": true,
+      "membership_grounded": true,
+      "approval_compliant": true,
+      "no_outcome_leaked": true,
+      "limitation_present": true,
+      "unsupported_claims": [],
+      "invalid_policy_refs": [],
+      "notes": [],
+      "duration_ms": 4430,
+      "input_tokens": 3091,
+      "output_tokens": 724
     },
     {
       "case_id": "flt-006",
@@ -1573,9 +1571,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2987,
-      "input_tokens": 3653,
-      "output_tokens": 556
+      "duration_ms": 4895,
+      "input_tokens": 4283,
+      "output_tokens": 1097
     },
     {
       "case_id": "flt-007",
@@ -1597,9 +1595,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3181,
-      "input_tokens": 3559,
-      "output_tokens": 741
+      "duration_ms": 3975,
+      "input_tokens": 4185,
+      "output_tokens": 480
     },
     {
       "case_id": "flt-008",
@@ -1621,9 +1619,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2868,
-      "input_tokens": 3313,
-      "output_tokens": 586
+      "duration_ms": 2694,
+      "input_tokens": 3938,
+      "output_tokens": 500
     },
     {
       "case_id": "flt-009",
@@ -1645,9 +1643,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2596,
-      "input_tokens": 3313,
-      "output_tokens": 544
+      "duration_ms": 3588,
+      "input_tokens": 3938,
+      "output_tokens": 968
     },
     {
       "case_id": "flt-010",
@@ -1669,7 +1667,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 255,
+      "duration_ms": 295,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1693,7 +1691,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 236,
+      "duration_ms": 299,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1717,7 +1715,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 237,
+      "duration_ms": 287,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1741,7 +1739,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 231,
+      "duration_ms": 291,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1765,9 +1763,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 9194,
-      "input_tokens": 3755,
-      "output_tokens": 625
+      "duration_ms": 4963,
+      "input_tokens": 4389,
+      "output_tokens": 743
     },
     {
       "case_id": "adv-001",
@@ -1789,9 +1787,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 4230,
-      "input_tokens": 3657,
-      "output_tokens": 643
+      "duration_ms": 5604,
+      "input_tokens": 4281,
+      "output_tokens": 682
     },
     {
       "case_id": "adv-002",
@@ -1813,9 +1811,9 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2879,
-      "input_tokens": 3731,
-      "output_tokens": 554
+      "duration_ms": 2898,
+      "input_tokens": 4365,
+      "output_tokens": 477
     },
     {
       "case_id": "adv-003",
@@ -1837,7 +1835,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 244,
+      "duration_ms": 391,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1861,7 +1859,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 249,
+      "duration_ms": 513,
       "input_tokens": 0,
       "output_tokens": 0
     },
@@ -1885,15 +1883,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 6174,
-      "input_tokens": 3671,
-      "output_tokens": 890
+      "duration_ms": 8862,
+      "input_tokens": 4305,
+      "output_tokens": 645
     },
     {
       "case_id": "sit-000",
       "category": "situation_escalatable",
       "split": "development",
-      "description": "Lane SP to RJ in 2018-08-15: 107 flagged, 6 qualifying under ESC-01.",
+      "description": "Lane SP to SP in 2018-08-15: 98 flagged, 20 qualifying under ESC-01.",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1909,15 +1907,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 4570,
-      "input_tokens": 7669,
-      "output_tokens": 498
+      "duration_ms": 5256,
+      "input_tokens": 7427,
+      "output_tokens": 1639
     },
     {
       "case_id": "sit-001",
       "category": "situation_escalatable",
       "split": "held_out",
-      "description": "Lane SP to SP in 2018-08-15: 68 flagged, 13 qualifying under ESC-01.",
+      "description": "Lane SP to MS in 2018-08-15: 11 flagged, 4 qualifying under ESC-01.",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1933,15 +1931,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2968,
-      "input_tokens": 6317,
-      "output_tokens": 530
+      "duration_ms": 2478,
+      "input_tokens": 4613,
+      "output_tokens": 479
     },
     {
       "case_id": "sit-002",
       "category": "situation_monitored",
       "split": "development",
-      "description": "Lane SP to MG in 2018-08-15: 35 flagged, 0 qualifying under ESC-01.",
+      "description": "Lane SP to RJ in 2018-08-15: 43 flagged, 2 qualifying under ESC-01.",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1957,15 +1955,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 2682,
-      "input_tokens": 5257,
-      "output_tokens": 386
+      "duration_ms": 2411,
+      "input_tokens": 5656,
+      "output_tokens": 449
     },
     {
       "case_id": "sit-003",
       "category": "situation_monitored",
       "split": "held_out",
-      "description": "Lane SP to BA in 2018-08-15: 24 flagged, 2 qualifying under ESC-01.",
+      "description": "Lane SP to RS in 2018-08-15: 18 flagged, 1 qualifying under ESC-01.",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -1981,20 +1979,20 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 3145,
-      "input_tokens": 4889,
-      "output_tokens": 571
+      "duration_ms": 3262,
+      "input_tokens": 4851,
+      "output_tokens": 411
     },
     {
       "case_id": "sit-004",
-      "category": "situation_monitored",
+      "category": "situation_escalatable",
       "split": "development",
-      "description": "Lane SP to RJ in 2018-07-18: 26 flagged, 0 qualifying under ESC-01.",
+      "description": "Lane SP to SP in 2018-07-18: 8 flagged, 4 qualifying under ESC-01.",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
-      "recommendation": "monitor",
-      "had_proposal": false,
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
       "task_completed": true,
       "claims_supported": true,
       "policy_citations_valid": true,
@@ -2005,15 +2003,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 6980,
-      "input_tokens": 4998,
-      "output_tokens": 1667
+      "duration_ms": 5953,
+      "input_tokens": 4238,
+      "output_tokens": 1275
     },
     {
       "case_id": "sit-005",
       "category": "situation_monitored",
       "split": "held_out",
-      "description": "Lane SP to BA in 2018-07-18: 33 flagged, 0 qualifying under ESC-01.",
+      "description": "Lane SP to BA in 2018-07-18: 38 flagged, 1 qualifying under ESC-01.",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -2029,15 +2027,15 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 9125,
-      "input_tokens": 5207,
-      "output_tokens": 457
+      "duration_ms": 2387,
+      "input_tokens": 5500,
+      "output_tokens": 399
     },
     {
       "case_id": "sit-006",
       "category": "situation_monitored",
       "split": "development",
-      "description": "Lane SP to RJ in 2018-06-20: 45 flagged, 0 qualifying under ESC-01.",
+      "description": "Lane SP to RJ in 2018-07-18: 14 flagged, 0 qualifying under ESC-01.",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -2053,15 +2051,39 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 13296,
-      "input_tokens": 5621,
-      "output_tokens": 560
+      "duration_ms": 2650,
+      "input_tokens": 4709,
+      "output_tokens": 438
     },
     {
       "case_id": "sit-007",
-      "category": "situation_monitored",
+      "category": "situation_escalatable",
       "split": "held_out",
-      "description": "Lane SP to SP in 2018-06-20: 33 flagged, 0 qualifying under ESC-01.",
+      "description": "Lane SP to SP in 2018-06-20: 59 flagged, 6 qualifying under ESC-01.",
+      "ran": true,
+      "skipped_reason": null,
+      "status": "completed",
+      "recommendation": "propose_escalation",
+      "had_proposal": true,
+      "task_completed": true,
+      "claims_supported": true,
+      "policy_citations_valid": true,
+      "membership_grounded": true,
+      "approval_compliant": true,
+      "no_outcome_leaked": true,
+      "limitation_present": true,
+      "unsupported_claims": [],
+      "invalid_policy_refs": [],
+      "notes": [],
+      "duration_ms": 2347,
+      "input_tokens": 6230,
+      "output_tokens": 367
+    },
+    {
+      "case_id": "sit-008",
+      "category": "situation_monitored",
+      "split": "development",
+      "description": "Lane SP to RJ in 2018-06-20: 56 flagged, 0 qualifying under ESC-01.",
       "ran": true,
       "skipped_reason": null,
       "status": "completed",
@@ -2077,12 +2099,36 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 7085,
-      "input_tokens": 5215,
-      "output_tokens": 467
+      "duration_ms": 2561,
+      "input_tokens": 6107,
+      "output_tokens": 495
     },
     {
-      "case_id": "sit-008",
+      "case_id": "sit-009",
+      "category": "situation_monitored",
+      "split": "held_out",
+      "description": "Lane SP to ES in 2018-06-20: 30 flagged, 0 qualifying under ESC-01.",
+      "ran": true,
+      "skipped_reason": null,
+      "status": "completed",
+      "recommendation": "monitor",
+      "had_proposal": false,
+      "task_completed": true,
+      "claims_supported": true,
+      "policy_citations_valid": true,
+      "membership_grounded": true,
+      "approval_compliant": true,
+      "no_outcome_leaked": true,
+      "limitation_present": true,
+      "unsupported_claims": [],
+      "invalid_policy_refs": [],
+      "notes": [],
+      "duration_ms": 2663,
+      "input_tokens": 5185,
+      "output_tokens": 564
+    },
+    {
+      "case_id": "sit-010",
       "category": "situation_deterministic",
       "split": "held_out",
       "description": "The deterministic brief, produced with no provider call.",
@@ -2101,12 +2147,12 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 139,
+      "duration_ms": 210,
       "input_tokens": 0,
       "output_tokens": 0
     },
     {
-      "case_id": "sit-009",
+      "case_id": "sit-011",
       "category": "situation_foreign_order",
       "split": "held_out",
       "description": "The model cites an order that is not part of this situation.",
@@ -2125,7 +2171,7 @@
       "unsupported_claims": [],
       "invalid_policy_refs": [],
       "notes": [],
-      "duration_ms": 126,
+      "duration_ms": 218,
       "input_tokens": 0,
       "output_tokens": 0
     }

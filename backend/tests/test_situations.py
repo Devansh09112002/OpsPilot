@@ -89,7 +89,7 @@ def test_a_member_is_escalatable_only_if_the_order_rule_says_so(db):
     detail = situations.get_situation(db, _any_situation(db).situation_id)
     for member in detail.members:
         permitted, _ = policies.escalation_permitted(
-            risk_probability=member.risk_probability,
+            in_review_list=member.risk_band == "high",
             days_to_deadline=member.days_to_deadline,
             is_overdue=False,
         )

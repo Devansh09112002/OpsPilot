@@ -219,10 +219,12 @@ def create_prediction(
     _: None = Depends(rate_limit),
     db: Session = Depends(get_db),
 ) -> PredictionResponse:
-    """Serve a live prediction from the loaded artifact.
+    """Re-score one order live, as of the start of its snapshot day.
 
-    Returns 503 when the artifact is unavailable. It never falls back to a
-    stored or synthetic value.
+    Recomputed from the stored point-in-time documents with the served
+    artifacts; a parity test asserts it equals the stored queue score. Returns
+    503 when the artifacts are unavailable. It never falls back to a stored or
+    synthetic value.
     """
     if not predictor.available:
         raise ServiceUnavailableError(
@@ -232,16 +234,16 @@ def create_prediction(
         )
 
     order = order_service.get_order_as_of(db, payload.order_id, payload.snapshot_id)
-    feature_row = order_service.get_feature_row(db, payload.order_id)
     try:
-        prediction = predictor.predict_one(
-            feature_row.features or {}, with_factors=True
-        )
+        prediction = predictor.score(db, payload.order_id, payload.snapshot_id)
     except Exception as exc:
         raise ServiceUnavailableError(
             "The model could not score this order.", {"reason": type(exc).__name__}
         ) from exc
 
+    from app.ml.predictor import arrival_tag
+
+    promised = order.order_estimated_delivery_date.date()
     return PredictionResponse(
         order_id=payload.order_id,
         snapshot_id=payload.snapshot_id,
@@ -249,9 +251,16 @@ def create_prediction(
         ranking_score=round(prediction.ranking_score, 6),
         risk_band=prediction.band,
         model_version=predictor.model_version or "unknown",
-        calibrated=prediction.calibrated,
+        priority_rank=prediction.priority_rank,
+        expected_arrival=prediction.eta_p50,
+        arrival_earliest=prediction.eta_p10,
+        arrival_latest=prediction.eta_p90,
+        buffer_days=None if prediction.eta_p50 is None else (promised - prediction.eta_p50).days,
+        arrival_tag=arrival_tag(prediction.eta_p50, promised, order.is_overdue),
+        cohort_size=prediction.cohort_size,
+        calibrated=False,
         risk_factors=prediction.factors,
-        prediction_as_of=order.order_delivered_carrier_date,
+        prediction_as_of=order.prediction_as_of,
         computed_at=prediction_computed_at(),
     )
 
@@ -430,8 +439,9 @@ def meta() -> dict:
         "model_family": meta_doc.get("model_family"),
         "model_available": predictor.available,
         "calibrated": predictor.calibrated,
-        "calibration_method": meta_doc.get("calibration_method") or None,
-        "band_thresholds": predictor.band_thresholds,
+        "scored_on": meta_doc.get("scored_on"),
+        "bands": predictor.bands,
+        "test_precision_at_50": meta_doc.get("test_precision_at_50"),
         "training_cutoff": meta_doc.get("training_cutoff"),
         "policy_version": policy_service.policy_version(),
         "llm_configured": get_settings().llm_configured,

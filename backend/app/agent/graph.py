@@ -51,6 +51,8 @@ class InvestigationState:
     trace: list[dict] = field(default_factory=list)
 
     risk_probability: float | None = None
+    priority_rank: int | None = None
+    in_review_list: bool | None = None
     model_version: str | None = None
     prediction_as_of: Any = None
     days_to_deadline: float | None = None
@@ -98,6 +100,8 @@ def gather_prediction(state: InvestigationState) -> InvestigationState:
     _record(state, result)
     if result.ok:
         state.risk_probability = float(result.data["risk_probability"])
+        state.priority_rank = result.data["priority_rank"]
+        state.in_review_list = bool(result.data["in_priority_review_list"])
         state.model_version = result.data["model_version"]
         state.prediction_as_of = result.data["prediction_as_of"]
     return state
@@ -112,16 +116,17 @@ def gather_history(state: InvestigationState) -> InvestigationState:
 
 
 def gather_policy(state: InvestigationState) -> InvestigationState:
-    if state.risk_probability is None or state.days_to_deadline is None:
+    if state.in_review_list is None or state.days_to_deadline is None:
         state.failures.append(
-            "get_demo_policy: policy selection needs a risk score and a deadline, "
-            "and at least one was unavailable."
+            "get_demo_policy: policy selection needs the model's priority ranking "
+            "and a deadline, and at least one was unavailable."
         )
         return state
     result = agent_tools.get_demo_policy(
-        risk_probability=state.risk_probability,
+        in_review_list=state.in_review_list,
         days_to_deadline=state.days_to_deadline,
         is_overdue=state.is_overdue,
+        priority_rank=state.priority_rank,
     )
     _record(state, result)
     if result.ok:
@@ -131,11 +136,11 @@ def gather_policy(state: InvestigationState) -> InvestigationState:
 
 
 def _required_evidence_present(state: InvestigationState) -> bool:
-    """Policy EVI-01: order id, risk score with version, and remaining days."""
+    """Policy EVI-01: order id, priority rank with version, and remaining days."""
     ids = {e.evidence_id for e in state.evidence}
     return {
         "order.order_id",
-        "prediction.risk_probability",
+        "prediction.priority_rank",
         "prediction.model_version",
         "order.days_to_deadline",
     } <= ids
@@ -146,8 +151,8 @@ def synthesize(state: InvestigationState) -> InvestigationState:
         state.status = "insufficient_evidence"
         state.error_message = (
             "Required evidence could not be retrieved, so no assessment was produced. "
-            "Policy EVI-01 requires the order identifier, the model risk score with "
-            "its version, and the days remaining before the promised date."
+            "Policy EVI-01 requires the order identifier, the model's priority rank "
+            "with its version, and the days remaining before the promised date."
         )
         return state
 

@@ -37,6 +37,9 @@ class Settings(BaseSettings):
 
     # --- model artifact ---
     artifact_dir: Path = Field(default=REPO_ROOT / "artifacts")
+    # Bring snapshot_orders up to the shipped model's scores at start-up. This
+    # is how a deploy updates its own database, with no separate credential.
+    score_sync_on_startup: bool = True
 
     # --- guest sessions ---
     session_cookie_name: str = "opspilot_session"

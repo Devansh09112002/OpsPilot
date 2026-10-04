@@ -13,10 +13,11 @@ Two properties this module is careful about:
 available, but only through `analytics.lane_context`, which applies the strict
 as-of cutoff.
 
-**Its ranking quantity is legitimate only because the scores are calibrated.**
-`expected_late` is the sum of member probabilities. Summing raw model output
-would produce a number with no units and no meaning, since `scale_pos_weight`
-inflates every raw score. Calibration is what makes addition defensible.
+**Its ranking quantity is a comparison, not a count.** `expected_late` (shown
+as *risk load*) is the sum of the members' estimated chances of missing the
+promise. Those estimates move with network conditions and run high in calm
+periods, so the total compares lanes within a day; it is not a forecast of how
+many parcels will be late.
 """
 
 from __future__ import annotations
@@ -192,7 +193,7 @@ def list_situations(
             # ESC-01 per member, expressed in SQL so the list view does not
             # have to load every member row to show a decision-relevant count.
             func.count().filter(
-                SnapshotOrder.risk_probability >= policies.ESCALATION_RISK_THRESHOLD,
+                SnapshotOrder.risk_band == "high",  # the day's priority review list
                 _deadline_days() <= policies.ESCALATION_SLACK_DAYS,
             ),
         )
@@ -282,7 +283,7 @@ def get_situation(db: Session, situation_id: str) -> Situation:
         # A member is escalatable only if the backend's own per-order policy
         # reading says so. ESC-05 counts these; it does not re-derive them.
         permitted, _ = policies.escalation_permitted(
-            risk_probability=float(r.risk_probability),
+            in_review_list=r.risk_band == "high",
             days_to_deadline=days_to_deadline,
             is_overdue=False,
         )

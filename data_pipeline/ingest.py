@@ -1,8 +1,11 @@
 """Load the validated feature tables and snapshot queues into PostgreSQL.
 
-Risk scores written here come from the same artifact the API serves, loaded
-through the same `load_artifact` / `predict_risk` path. A parity test asserts
-that a stored score equals a freshly served one; nothing synthetic is inserted.
+Snapshot membership and the handover-time feature documents are loaded first,
+with the v2 handover model's scores. The served v4 snapshot-day scores, ranks
+and arrival estimates then replace those scores through
+`app.services.model_sync`, the same code the API runs at start-up. A parity
+test asserts that a stored score equals a freshly served one; nothing
+synthetic is inserted.
 
 Rerunning is idempotent: each table is replaced wholesale inside one
 transaction, so a partial run cannot leave the database half-populated.
@@ -171,6 +174,11 @@ def ingest() -> dict:
 
 def main() -> int:
     stats = ingest()
+    from app.services.model_sync import sync_snapshot_scores
+
+    with SessionLocal() as db:
+        result = sync_snapshot_scores(db, spec.ARTIFACT_DIR, force=True)
+    stats["v4 scores"] = result["updated"]
     print("INGEST COMPLETE")
     for table, n in stats.items():
         print(f"  {table:<18s} {n:>7,} rows")

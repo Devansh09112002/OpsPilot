@@ -1,15 +1,15 @@
-"""Does `expected_late` mean what the product says it means?
+"""Does `expected_late` (the lane "risk load") mean what the product says?
 
-The situations screen shows, for each lane, the sum of its member orders'
-calibrated probabilities, and calls that the number of orders the model
-expects to be delivered late. That reading is only legitimate if the
-calibration holds on the population it is applied to: the flagged, in-transit
-orders of a snapshot, in the held-out test period.
+The situations screen shows, for each lane, the sum of its flagged member
+orders' estimated chances of missing the promise. Reading that sum as a count
+of late parcels would only be legitimate if the estimates were calibrated on
+the population they are applied to: the flagged, in-transit orders of a
+snapshot, in the held-out test period.
 
-It does not, and this script is how that is measured rather than assumed. The
-isotonic calibrator is fitted on the validation split, whose late rate is
-10.8%; the snapshots sit in the test period, whose rate is 3.0%. Calibration
-does not survive a shift that size, and the sum overstates.
+They are not, and this script is how that is measured rather than assumed.
+The served model's estimates move with network conditions; on the calm test
+period the sum overstates. What survives is the comparison between lanes,
+which the script also measures.
 
 Run:  python -m evaluation.snapshot_calibration
 Writes: docs/snapshot_calibration.json and a section for the model report.
@@ -125,41 +125,35 @@ def render(result: dict) -> str:
         f"{s['actual_late']} | {s['ratio']}x |"
         for s in result["by_snapshot"]
     )
-    return f"""## Does `expected_late` predict the right number?
+    return f"""## Does the lane risk load predict the right number?
 
-The situations screen sums member calibrated probabilities and presents the
-total as the number of orders the model expects to arrive late. Measured
-against what actually happened on the held-out snapshots:
+Served model: the v4 snapshot-day ensemble (`docs/research_v4.md`). The
+situations screen sums the flagged members' estimated chances of missing the
+promise into a lane's *risk load*. Measured against what actually happened on
+the held-out snapshots:
 
-| snapshot | flagged orders | predicted late | actually late | ratio |
+| snapshot | flagged orders | summed estimate | actually late | ratio |
 |---|---|---|---|---|
 {rows}
-| **all** | **{result['flagged_orders']}** | **{result['predicted_late_total']}** | \
-**{result['actual_late_total']}** | **{result['overall_ratio']}x** |
+| **all** | **{result['flagged_orders']}** | **{result['predicted_late_total']}** | **{result['actual_late_total']}** | **{result['overall_ratio']}x** |
 
-**The sum overstates by about {result['overall_ratio']}x.** Across the
+**Overall the sum overstates by about {result['overall_ratio']}x**, and the
+ratio moves from day to day: the estimates follow network conditions, running
+low on one snapshot and high on another. Across the
 {result['situations_measured']} lane situations, the mean signed error is
 {result['situation_mean_signed_error']:+} orders and
 {result['situations_overstated']} of {result['situations_measured']} overstate.
 
-The cause is the shift this dataset is already known for. The isotonic
-calibrator is fitted on the validation split, whose late rate is 10.8%; the
-snapshots sit in the test period at 3.0%. A calibration map does not survive a
-3.6x change in base rate, and the flagged population is where the gap is
-widest.
+**Why it was not "fixed".** Re-fitting anything on the test period after
+seeing these numbers would make every held-out figure meaningless. The model
+is frozen, the measurement stands, and the product wording says what the
+number is.
 
-**Why it was not "fixed".** Refitting the calibrator on the test period, or
-selecting a different fitting window after seeing these numbers, would make
-every held-out figure in this report meaningless. The model and its calibrator
-are frozen, the measurement stands, and the product wording was changed
-instead.
-
-**What the number is still good for.** Ranking. A multiplicative bias does not
-reorder anything, and rank correlation between expected and actual late counts
-across situations is
+**What the number is good for.** Comparing lanes. The rank correlation
+between a lane's risk load and its actual late count is
 **{result['rank_correlation_expected_vs_actual']}**. Choosing which lane to
 review first is sound; reading the total as a forecast of how many parcels
-will be late is not, and the UI no longer invites that reading.
+will be late is not, and the UI does not invite that reading.
 """
 
 

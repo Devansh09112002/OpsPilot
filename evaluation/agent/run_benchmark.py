@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import statistics
 import sys
@@ -485,7 +486,10 @@ def aggregate(results: list[CaseResult]) -> dict:
     if durations:
         out["duration_ms"] = {
             "median": int(statistics.median(durations)),
-            "p95": int(sorted(durations)[max(0, int(len(durations) * 0.95) - 1)]),
+            # Nearest-rank percentile. The previous index, int(n * 0.95) - 1,
+            # returned the minimum for n = 2, so a category could report a p95
+            # below its median.
+            "p95": int(sorted(durations)[max(0, math.ceil(len(durations) * 0.95) - 1)]),
             "max": max(durations),
         }
     if llm_calls:

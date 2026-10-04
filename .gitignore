@@ -39,6 +39,7 @@ artifacts/*
 !artifacts/.gitkeep
 !artifacts/delivery_risk_model.joblib
 !artifacts/delivery_risk_model.meta.json
+!artifacts/v4/
 
 # Local postgres cluster
 .pgdata/
@@ -70,3 +71,6 @@ _bench*.log
 # Kept locally, never published - they describe how the project was directed,
 # which is not part of the product.
 .private/
+
+# Local research on other datasets (LaDe). Kept on this machine only.
+research/

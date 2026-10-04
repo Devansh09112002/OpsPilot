@@ -75,6 +75,21 @@ def _days_to_deadline(snapshot_at: datetime, estimated: datetime) -> float:
     return (estimated.date() - snapshot_at.date()).days
 
 
+def _forecast(so: SnapshotOrder, of: OrderFeature) -> dict:
+    """Priority rank and the arrival forecast against the promised day."""
+    from app.ml.predictor import arrival_tag
+
+    promised = of.order_estimated_delivery_date.date()
+    return {
+        "priority_rank": so.priority_rank,
+        "expected_arrival": so.eta_p50,
+        "arrival_earliest": so.eta_p10,
+        "arrival_latest": so.eta_p90,
+        "buffer_days": None if so.eta_p50 is None else (promised - so.eta_p50).days,
+        "arrival_tag": arrival_tag(so.eta_p50, promised, so.is_overdue),
+    }
+
+
 def _base_query(snapshot_id: str) -> Select:
     return (
         select(SnapshotOrder, OrderFeature)
@@ -113,9 +128,8 @@ def list_orders(
         select(func.count()).select_from(q.subquery())
     ).scalar_one()
 
-    # Sort on the raw ranking score, not the calibrated probability. Isotonic
-    # calibration creates ties; ordering by the tied values would silently
-    # change the ranking every published metric was measured on.
+    # Sort on the ranking score - the validated quantity - not the probability.
+    # Overdue orders carry -1, so they follow every ranked order.
     order_by = {
         "risk": SnapshotOrder.ranking_score.desc(),
         "deadline": OrderFeature.order_estimated_delivery_date.asc(),
@@ -140,6 +154,7 @@ def list_orders(
             ranking_score=round(so.ranking_score, 6),
             risk_band=so.risk_band,
             model_version=so.model_version,
+            **_forecast(so, of),
             customer_state=of.customer_state,
             seller_state=of.seller_state,
             product_category=of.product_category,
@@ -156,8 +171,9 @@ def get_order_as_of(
 ) -> OrderAsOf:
     """Approved as-of detail for one order. The only order DTO agents receive.
 
-    `with_factors` computes a per-order TreeSHAP attribution. It is off by
-    default because the list view would pay for it on every row.
+    `with_factors` re-scores the order live and attaches its TreeSHAP
+    attribution. It is off by default because the list view would pay for it
+    on every row.
     """
     snap = get_snapshot(db, snapshot_id)
     row = db.execute(
@@ -172,16 +188,13 @@ def get_order_as_of(
     f = of.features or {}
 
     factors: list = []
-    calibrated = True
     from app.ml.predictor import predictor
 
-    if predictor.available:
-        calibrated = predictor.calibrated
-        if with_factors:
-            try:
-                factors = predictor.predict_one(f, with_factors=True).factors
-            except Exception:
-                factors = []
+    if predictor.available and with_factors and not so.is_overdue:
+        try:
+            factors = predictor.score(db, order_id, snapshot_id).factors
+        except Exception:
+            factors = []
 
     return OrderAsOf(
         order_id=of.order_id,
@@ -206,9 +219,11 @@ def get_order_as_of(
         ranking_score=round(so.ranking_score, 6),
         risk_band=so.risk_band,
         model_version=so.model_version,
-        calibrated=calibrated,
+        **_forecast(so, of),
+        cohort_size=snap.orders_pre_deadline,
+        calibrated=False,
         risk_factors=factors,
-        prediction_as_of=of.order_delivered_carrier_date,
+        prediction_as_of=snap.snapshot_at,
     )
 
 
