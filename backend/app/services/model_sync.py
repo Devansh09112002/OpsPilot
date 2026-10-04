@@ -94,8 +94,42 @@ def bulk_update(db: Session, rows: list[dict]) -> None:
     ))
 
 
+def _differing_rows(db: Session, scores: pd.DataFrame) -> int:
+    """How many stored rows differ from the shipped ones, by content.
+
+    Comparing only `model_version` missed a real difference in production: the
+    same version name had been loaded with an earlier tie-break, so two ranks
+    stayed swapped after a deploy that "found nothing to do".
+    """
+    stored = pd.DataFrame(
+        db.execute(select(
+            SnapshotOrder.snapshot_id, SnapshotOrder.order_id, SnapshotOrder.model_version,
+            SnapshotOrder.priority_rank, SnapshotOrder.risk_band,
+            SnapshotOrder.ranking_score, SnapshotOrder.eta_p50,
+        )).all(),
+        columns=["snapshot_id", "order_id", "model_version", "priority_rank",
+                 "risk_band", "ranking_score", "eta_p50"],
+    )
+    want = scores.assign(
+        ranking_score=scores["ensemble_score"].where(~scores["is_overdue"], UNRANKED_SCORE),
+        eta_p50=pd.to_datetime(scores["eta_p50"]).dt.date,
+    )[stored.columns]
+    m = want.merge(stored, on=["snapshot_id", "order_id"], how="outer",
+                   suffixes=("", "_db"), indicator=True)
+    differs = (
+        (m["_merge"] != "both")
+        | (m["model_version"] != m["model_version_db"])
+        | (m["priority_rank"].fillna(-1).astype(float)
+           != m["priority_rank_db"].fillna(-1).astype(float))
+        | (m["risk_band"] != m["risk_band_db"])
+        | ((m["ranking_score"] - m["ranking_score_db"]).abs() > 1e-12)
+        | (m["eta_p50"] != m["eta_p50_db"])
+    )
+    return int(differs.sum())
+
+
 def sync_snapshot_scores(db: Session, artifact_dir: Path, *, force: bool = False) -> dict:
-    """Bring `snapshot_orders` up to the shipped model version. Idempotent."""
+    """Bring `snapshot_orders` up to the shipped scores. Idempotent."""
     path = scores_path(artifact_dir)
     if not path.exists():
         raise ScoreSyncError(f"shipped scores not found at {path}")
@@ -103,11 +137,7 @@ def sync_snapshot_scores(db: Session, artifact_dir: Path, *, force: bool = False
     version = str(scores["model_version"].iloc[0])
 
     total = db.execute(select(func.count()).select_from(SnapshotOrder)).scalar_one()
-    stale = db.execute(
-        select(func.count()).select_from(SnapshotOrder)
-        .where(SnapshotOrder.model_version != version)
-    ).scalar_one()
-    if total and not stale and not force:
+    if total and not force and _differing_rows(db, scores) == 0:
         return {"status": "current", "model_version": version, "updated": 0}
 
     stored = set(db.execute(select(SnapshotOrder.snapshot_id, SnapshotOrder.order_id)).all())
