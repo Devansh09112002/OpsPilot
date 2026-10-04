@@ -28,4 +28,22 @@ test.describe("screenshots", () => {
     await page.waitForTimeout(800);
     await page.screenshot({ path: `${DIR}/live-lane-brief.png`, fullPage: false });
   });
+
+  test("risk queue", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("order-row").first()).toBeVisible();
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: `${DIR}/live-risk-queue.png`, fullPage: false });
+  });
+
+  test("order with an AI investigation", async ({ page }) => {
+    test.setTimeout(180000);
+    await page.goto("/");
+    await page.getByTestId("order-row").first().getByRole("link").click();
+    await expect(page.getByTestId("forecast")).toBeVisible();
+    await page.getByTestId("investigate").click();
+    await expect(page.getByTestId("investigation-report")).toBeVisible({ timeout: 120_000 });
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `${DIR}/live-investigation.png`, fullPage: false });
+  });
 });

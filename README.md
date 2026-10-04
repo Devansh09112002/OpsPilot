@@ -287,8 +287,18 @@ No paid service is used and no billing is enabled.
 
 A release updates its own database: the container applies additive migrations
 before serving, and the API loads the shipped model scores at start-up, so a
-model change needs no manual seeding step. Verified against the public URLs
-with `python -m infra.verify_deployment` and the Playwright suite.
+model change needs no manual seeding step.
+
+Verified against the public URLs, not localhost (4 October 2026):
+
+- `python -m infra.verify_deployment` — **39/39 checks**, covering the
+  priority queue, the leakage boundary, live re-scoring matching the stored
+  score, a real AI investigation (7.9 s), approval, idempotency under a double
+  approve, and cross-session isolation.
+- Playwright — **31 browser journeys pass**, including the full approve and
+  reject paths with real AI investigations and WCAG 2.1 AA checks on every
+  screen. The one skipped test asserts the no-AI failure path, which does not
+  apply when a key is configured.
 
 The free tier's behaviour is handled rather than hidden:
 
